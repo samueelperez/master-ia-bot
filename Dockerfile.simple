@@ -1,0 +1,61 @@
+# Dockerfile simple para Railway
+FROM python:3.11-slim
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear usuario no-root para seguridad
+RUN groupadd -r crypto_bot && useradd -r -g crypto_bot crypto_bot
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración
+COPY requirements/ ./requirements/
+COPY railway.toml ./
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements/common.txt
+
+# Copiar código fuente
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY docs/ ./docs/
+
+# Copiar configuración
+COPY config/ ./config/ 2>/dev/null || mkdir -p ./config
+
+# Instalar dependencias de Node.js para webapp
+WORKDIR /app/src/webapp
+RUN npm ci --only=production
+WORKDIR /app
+
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/pids /app/backup_env
+
+# Script de inicio - IMPORTANTE: configurar permisos ANTES de cambiar usuario
+COPY scripts/start-simple.sh /app/start-simple.sh
+RUN chmod +x /app/start-simple.sh
+
+# Configurar permisos de archivos ANTES de cambiar usuario
+RUN chown -R crypto_bot:crypto_bot /app
+
+# Cambiar a usuario no-root DESPUÉS de configurar permisos
+USER crypto_bot
+
+# Exponer puertos
+EXPOSE 3000 8000 9004 9005
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Comando por defecto
+CMD ["/app/start-simple.sh"] 
