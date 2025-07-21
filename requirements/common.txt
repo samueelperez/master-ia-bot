@@ -15,6 +15,9 @@ httpx==0.25.2
 # Bot de Telegram
 python-telegram-bot==20.7
 
+# Base de datos
+sqlalchemy==2.0.23
+
 # Utilidades básicas
 python-dotenv==1.0.0
 psutil==5.9.8
