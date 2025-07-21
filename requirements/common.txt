@@ -14,6 +14,9 @@ pydantic-settings==2.1.0
 httpx==0.25.2
 aiohttp==3.9.1
 
+# Web scraping
+beautifulsoup4==4.12.2
+
 # Bot de Telegram
 python-telegram-bot==20.7
 
