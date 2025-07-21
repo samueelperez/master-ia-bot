@@ -1129,7 +1129,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         risk = abs(entry - stop)
                         reward = abs(entry - take)
                         risk_reward = f"{reward/risk:.2f}" if risk > 0 else "0.00"
-        else:
+                    else:
                         risk_reward = "0.80"
                 except:
                     risk_reward = "0.80"
@@ -1226,10 +1226,10 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # Enviar respuesta
         try:
-        await update.message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
-        except Exception as parse_error:
-            # Si falla el parsing de Markdown, enviar sin formato
-            secure_logger.safe_log(f"Error parsing Markdown, sending without format: {str(parse_error)}", "warning", user_id)
+            await update.message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
+        except Exception as e:
+            secure_logger.safe_log(f"Error enviando respuesta: {e}", "error", user_id)
+            # Fallback sin markdown
             await update.message.reply_text(response_text)
         
         secure_memory.add_message(user_id, "assistant", response_text)
