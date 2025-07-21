@@ -9,10 +9,10 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 import uvicorn
 import uuid
 
-from .api.routes import api_router
-from .core.config import settings
-from .core.logging import configure_logging, get_request_logger
-from .core.security import SecurityMiddleware, SecurityHeaders, secure_logger
+from api.routes import api_router
+from core.config import settings
+from core.logging import configure_logging, get_request_logger
+from core.security import SecurityMiddleware, SecurityHeaders, secure_logger
 
 # Configure logging
 configure_logging()
