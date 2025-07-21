@@ -4,10 +4,11 @@
 # Estas dependencias son utilizadas por múltiples módulos
 # Generado automáticamente: 2025-06-19 18:40:21
 
-# Framework web y servidor
+# FastAPI y dependencias
 fastapi==0.104.1
-uvicorn==0.24.0
-pydantic==2.5.2
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
 
 # Cliente HTTP
 httpx==0.25.2
