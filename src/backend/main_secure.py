@@ -24,6 +24,9 @@ from core.security.auth import get_current_user, require_auth
 from core.security.middleware import SecurityMiddleware
 from core.validation.input_validator import input_validator
 
+# Crear directorio de logs si no existe
+os.makedirs('logs', exist_ok=True)
+
 # Configuración de logging estructurado
 logging.basicConfig(
     level=logging.INFO,
@@ -35,8 +38,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Crear directorio de logs si no existe
-os.makedirs('logs', exist_ok=True)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
