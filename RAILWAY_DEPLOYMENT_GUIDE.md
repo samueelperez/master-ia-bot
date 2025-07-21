@@ -19,7 +19,7 @@ Esta guía te ayudará a desplegar tu Crypto AI Bot en Railway.app de forma ráp
 ### ✅ Archivos Principales
 - `railway.toml` - Configuración principal de Railway
 - `Dockerfile.simple` - Imagen optimizada para Railway
-- `scripts/railway-start.sh` - Script de inicio optimizado
+- `start.sh` - Script de inicio optimizado
 
 ## 🚀 Pasos de Despliegue
 
@@ -35,7 +35,7 @@ Esta guía te ayudará a desplegar tu Crypto AI Bot en Railway.app de forma ráp
 2. **Verificar que todos los archivos estén incluidos:**
    ```bash
    ls -la railway.toml
-   ls -la scripts/railway-start.sh
+   ls -la start.sh
    ls -la Dockerfile.simple
    ```
 

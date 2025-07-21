@@ -9,7 +9,7 @@
 - `RAILWAY_FINAL_CONFIG.md` - Redundante con `RAILWAY_DEPLOYMENT_GUIDE.md`
 - `railway.json` - Redundante con `railway.toml` (formato más moderno)
 - `Dockerfile.railway` - Redundante con `Dockerfile.simple`
-- `start_railway.sh` - Redundante con `scripts/railway-start.sh`
+- `start.sh` - Script de inicio optimizado
 - `railway.env.example` - Redundante con `config/env.example`
 
 ## ✅ Archivos Mantenidos (Necesarios)
