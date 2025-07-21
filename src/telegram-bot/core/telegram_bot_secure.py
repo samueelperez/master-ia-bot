@@ -959,9 +959,9 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     crypto_specified = symbol != "BTC"  # Si se detectó un símbolo específico
     
     # Construir payload seguro
-        payload = {
-            "symbol": symbol,
-            "timeframe": timeframe,
+    payload = {
+        "symbol": symbol,
+        "timeframe": timeframe,
         "strategy_name": "scalping",
         "request_id": f"signal_{user_id}_{int(datetime.now().timestamp())}",
         "current_price": 0,  # Se obtendrá del AI Module
