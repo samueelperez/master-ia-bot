@@ -24,6 +24,9 @@ psycopg2-binary==2.9.9
 # Trading
 ccxt==4.1.77
 
+# Análisis técnico
+pandas_ta==0.3.14b
+
 # Autenticación
 PyJWT==2.8.0
 passlib[bcrypt]==1.7.4
