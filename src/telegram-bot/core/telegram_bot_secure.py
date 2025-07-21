@@ -441,11 +441,11 @@ def build_secure_payload(user_id: int, text: str) -> Dict[str, Any]:
             break
     else:
         # Fallback: buscar símbolos de 3-4 letras
-    common_symbols = ["BTC", "ETH", "ADA", "DOT", "SOL", "MATIC", "AVAX", "LINK", "DOGE", "SHIB", "XRP"]
-    for s in common_symbols:
-        if s.lower() in sanitized_text.lower():
-            symbol = s
-            break
+        common_symbols = ["BTC", "ETH", "ADA", "DOT", "SOL", "MATIC", "AVAX", "LINK", "DOGE", "SHIB", "XRP"]
+        for s in common_symbols:
+            if s.lower() in sanitized_text.lower():
+                symbol = s
+                break
 
     # Detectar timeframe
     timeframe_patterns = {
@@ -919,7 +919,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         for s in common_symbols:
             if s.lower() in text_lower:
                 symbol = s
-            break
+                break
     
     # Extraer timeframe - buscar el más específico (más corto primero)
     timeframe = "1h"  # Default
@@ -940,16 +940,13 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 detected_timeframes.append("15m")
             elif "30" in text_lower and ("30 minuto" in text_lower or "30 minutos" in text_lower):
                 detected_timeframes.append("30m")
-    else:
+            else:
                 detected_timeframes.append("5m")  # Default para minutos
         elif "hora" in text_lower or "horas" in text_lower:
-            if "4" in text_lower and ("4 hora" in text_lower or "4 horas" in text_lower):
-                detected_timeframes.append("4h")
-            else:
-                detected_timeframes.append("1h")  # Default para horas
-        elif "día" in text_lower or "dias" in text_lower or "diario" in text_lower:
+            detected_timeframes.append("1h")
+        elif "día" in text_lower or "dia" in text_lower:
             detected_timeframes.append("1d")
-        elif "semana" in text_lower or "semanas" in text_lower:
+        elif "semana" in text_lower or "semanal" in text_lower:
             detected_timeframes.append("1w")
     
     # Si se detectaron múltiples timeframes, elegir el más específico (más corto)
