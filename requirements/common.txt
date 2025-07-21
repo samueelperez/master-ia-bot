@@ -22,6 +22,7 @@ sqlalchemy==2.0.23
 
 # Autenticación
 PyJWT==2.8.0
+passlib[bcrypt]==1.7.4
 
 # AI/ML
 openai==1.3.7
