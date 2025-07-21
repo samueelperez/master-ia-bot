@@ -19,6 +19,7 @@ python-telegram-bot==20.7
 
 # Base de datos
 sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
 
 # Autenticación
 PyJWT==2.8.0
