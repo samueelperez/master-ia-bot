@@ -1010,7 +1010,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 raise search_error
         else:
             # Usar siempre el endpoint /generate como en simulate_bot.py
-        data = await secure_ai_call(endpoint, payload, user_id)
+            data = await secure_ai_call(endpoint, payload, user_id)
 
         if not data:
             error_msg = "❌ Error comunicándose con el servicio de IA. Intenta de nuevo más tarde."
