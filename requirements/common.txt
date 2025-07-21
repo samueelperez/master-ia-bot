@@ -14,6 +14,8 @@ httpx==0.25.2
 
 # Utilidades básicas
 python-dotenv==1.0.0
+psutil==5.9.8
+nest_asyncio==1.6.0
 
 # Análisis de datos
 pandas==2.2.2
