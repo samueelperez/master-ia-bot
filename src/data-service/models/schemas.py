@@ -58,6 +58,19 @@ class SocialMediaResponse(BaseModel):
     sentiment_analysis: Optional[Dict[str, Any]] = None
 
 
+class ExternalDataResponse(BaseModel):
+    """Response model for external data."""
+    economic_events: EconomicEventsResponse
+    news: NewsResponse
+    social_media: SocialMediaResponse
+    timestamp: str
+
+
+class FormattedDataResponse(BaseModel):
+    """Response model for formatted data."""
+    formatted_data: Dict[str, Any]
+
+
 class IntegratedDataResponse(BaseModel):
     """Response model for integrated data."""
     economic_events: EconomicEventsResponse
