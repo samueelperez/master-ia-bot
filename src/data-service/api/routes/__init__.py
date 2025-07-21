@@ -3,7 +3,7 @@ API routes for the External Data Service.
 """
 from fastapi import APIRouter
 
-from api.routes import news, social, economic, integration, auth
+from . import news, social, economic, integration, auth
 
 # Create API router
 api_router = APIRouter()
