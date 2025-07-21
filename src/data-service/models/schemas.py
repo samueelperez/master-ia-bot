@@ -58,6 +58,19 @@ class SocialMediaResponse(BaseModel):
     sentiment_analysis: Optional[Dict[str, Any]] = None
 
 
+class Token(BaseModel):
+    """Token model for authentication."""
+    access_token: str
+    token_type: str
+
+
+class UserInfo(BaseModel):
+    """User information model."""
+    username: str
+    email: Optional[str] = None
+    scopes: List[str] = []
+
+
 class ExternalDataResponse(BaseModel):
     """Response model for external data."""
     economic_events: EconomicEventsResponse
