@@ -41,15 +41,15 @@ except ImportError:
 
 # Imports de seguridad locales
 try:
-from .security_config import (
-    TelegramSecurityConfig, 
-    TelegramRateLimiter, 
-    TelegramInputValidator, 
-    TelegramSecureLogger
-)
-from .secure_memory_manager import SecureMemoryManager
-from .referral_verification import referral_verifier
-from .user_verification import user_verification
+    from .security_config import (
+        TelegramSecurityConfig, 
+        TelegramRateLimiter, 
+        TelegramInputValidator, 
+        TelegramSecureLogger
+    )
+    from .secure_memory_manager import SecureMemoryManager
+    from .referral_verification import referral_verifier
+    from .user_verification import user_verification
 except ImportError:
     # Fallback para ejecución directa
     from security_config import (
