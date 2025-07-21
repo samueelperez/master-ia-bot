@@ -20,6 +20,12 @@ python-telegram-bot==20.7
 # Base de datos
 sqlalchemy==2.0.23
 
+# Autenticación
+PyJWT==2.8.0
+
+# AI/ML
+openai==1.3.7
+
 # Utilidades básicas
 python-dotenv==1.0.0
 psutil==5.9.8
