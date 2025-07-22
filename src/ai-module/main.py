@@ -66,6 +66,9 @@ from core.models.request_models import (
 )
 from core.services.advanced_strategies_service import AdvancedStrategiesService, StrategyResult, test_router
 
+# Importar modelos y funciones de llm_inference para el endpoint /generate
+from core.llm_inference import AnalyzeRequest, generate
+
 # Configurar logging
 log_config = SecurityConfig.get_log_config()
 os.makedirs(log_config["dir"], exist_ok=True)
@@ -716,6 +719,33 @@ async def advanced_strategy(
         raise HTTPException(
             status_code=500,
             detail="Error interno ejecutando estrategia avanzada"
+        )
+
+
+@app.post("/generate")
+async def generate_endpoint(
+    request: Request,
+    req: AnalyzeRequest,
+    token: str = Depends(verify_token)
+):
+    """Endpoint /generate para compatibilidad con el Telegram Bot."""
+    await rate_limit_middleware(request)
+    request_id = str(uuid.uuid4())
+    client_ip = get_client_ip(request)
+    
+    logger.info(f"Generate endpoint - ID: {request_id}, IP: {client_ip}, Symbol: {req.symbol}")
+    
+    try:
+        result = await generate(req)
+        logger.info(f"Generate completado - ID: {request_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en generate - ID: {request_id}, Error: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno en generate"
         )
 
 
