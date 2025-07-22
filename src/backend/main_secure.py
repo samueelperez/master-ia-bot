@@ -69,6 +69,11 @@ async def healthcheck_railway():
     await asyncio.sleep(0.1)
     return {"status": "ok", "service": "backend"}
 
+@app.get("/test")
+async def test():
+    """Endpoint de prueba ultra simple."""
+    return {"test": "ok"}
+
 @app.get("/ping")
 async def ping():
     """Endpoint ultra simple para Railway healthcheck."""
