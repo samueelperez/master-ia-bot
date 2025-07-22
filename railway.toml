@@ -7,6 +7,9 @@ healthcheckTimeout = 1800
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
+# Forzar nuevo deploy
+# Railway healthcheck test
+
 [[services]]
 name = "crypto-ai-bot"
 port = 8000 
