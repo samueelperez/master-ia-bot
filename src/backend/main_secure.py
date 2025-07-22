@@ -57,6 +57,20 @@ app = FastAPI(
     redoc_url="/redoc" if os.getenv("ENABLE_DOCS", "true").lower() == "true" else None,
 )
 
+# =============================================================================
+# ENDPOINTS DE HEALTHCHECK (ANTES DE MIDDLEWARE)
+# =============================================================================
+
+@app.get("/ping")
+async def ping():
+    """Endpoint ultra simple para Railway healthcheck."""
+    return {"pong": "ok"}
+
+@app.get("/healthcheck")
+async def healthcheck():
+    """Healthcheck simple para Railway."""
+    return {"status": "healthy"}
+
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
     TrustedHostMiddleware,
