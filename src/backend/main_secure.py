@@ -58,8 +58,13 @@ app = FastAPI(
 )
 
 # =============================================================================
-# ENDPOINTS DE HEALTHCHECK (ANTES DE MIDDLEWARE)
+# ENDPOINTS DE HEALTHCHECK (INMEDIATOS - SIN MIDDLEWARE)
 # =============================================================================
+
+@app.get("/healthcheck-railway")
+async def healthcheck_railway():
+    """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
+    return {"status": "ok", "service": "backend"}
 
 @app.get("/ping")
 async def ping():
