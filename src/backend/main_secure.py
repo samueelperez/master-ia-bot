@@ -79,10 +79,14 @@ async def ping():
     """Endpoint ultra simple para Railway healthcheck."""
     return {"pong": "ok"}
 
-@app.get("/healthcheck")
-async def healthcheck():
-    """Healthcheck simple para Railway."""
-    return {"status": "healthy"}
+@app.get("/health")
+async def health():
+    """Health check básico."""
+    return {
+        "status": "ok", 
+        "version": "2.0.0",
+        "security": "enabled"
+    }
 
 @app.get("/ready")
 async def ready():
@@ -127,15 +131,6 @@ async def root():
         "status": "ok",
         "service": "crypto-ai-bot-backend",
         "version": "2.0.0"
-    }
-
-@app.get("/health")
-async def health():
-    """Health check básico."""
-    return {
-        "status": "ok", 
-        "version": "2.0.0",
-        "security": "enabled"
     }
 
 @app.get("/health/simple")
