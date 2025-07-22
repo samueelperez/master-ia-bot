@@ -88,6 +88,15 @@ def get_db():
 # ENDPOINTS PÚBLICOS (sin autenticación)
 # =============================================================================
 
+@app.get("/")
+async def root():
+    """Endpoint raíz para verificar que el servicio está funcionando."""
+    return {
+        "status": "ok",
+        "service": "crypto-ai-bot-backend",
+        "version": "2.0.0"
+    }
+
 @app.get("/health")
 async def health():
     """Health check básico."""
@@ -96,6 +105,11 @@ async def health():
         "version": "2.0.0",
         "security": "enabled"
     }
+
+@app.get("/health/simple")
+async def health_simple():
+    """Health check simple y rápido para Railway."""
+    return {"status": "ok"}
 
 @app.get("/health/detailed")
 async def health_detailed():
@@ -347,7 +361,7 @@ async def get_security_info():
             "payload_limits": f"Máximo {SecurityConfig.MAX_PAYLOAD_SIZE // 1024} KB por request"
         },
         "endpoints": {
-            "public": ["/health", "/health/detailed", "/security/info"],
+            "public": ["/", "/health", "/health/simple", "/security/info"],
             "protected": ["/db-test", "/available-indicators", "/indicator-profiles", "/indicators", "/indicators/custom", "/strategies"]
         },
         "rate_limits": {
