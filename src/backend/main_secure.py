@@ -71,6 +71,11 @@ async def healthcheck():
     """Healthcheck simple para Railway."""
     return {"status": "healthy"}
 
+@app.get("/ready")
+async def ready():
+    """Endpoint para verificar que el servicio está listo."""
+    return {"ready": True}
+
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
     TrustedHostMiddleware,
