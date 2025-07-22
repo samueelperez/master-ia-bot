@@ -1,5 +1,8 @@
 """
-Main application entry point for the External Data Service.
+External Data Service - FastAPI Application
+===========================================
+
+Servicio de datos externos para Crypto AI Bot.
 Incluye sistema completo de seguridad robusta.
 """
 import logging
@@ -11,13 +14,13 @@ import uuid
 
 from api.routes import api_router
 from core.config import settings
-from core.logging import configure_logging, get_request_logger
+from core.logging import setup_logging, get_logger
 from core.security import SecurityMiddleware, SecurityHeaders, secure_logger
 
 # Configure logging
-configure_logging()
+setup_logging()
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Create FastAPI app with security settings
 app = FastAPI(
@@ -83,7 +86,7 @@ async def request_processing_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     
     # Get request logger
-    request_logger = get_request_logger(request_id)
+    request_logger = get_logger(f"request.{request_id}")
     
     # Extract client info safely
     client_ip = "unknown"
