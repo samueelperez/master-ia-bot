@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 # Imports de la aplicación
 from core.db import SessionLocal
@@ -74,24 +75,48 @@ async def test():
     """Endpoint de prueba ultra simple."""
     return {"test": "ok"}
 
-@app.get("/ping")
-async def ping():
-    """Endpoint ultra simple para Railway healthcheck."""
-    return {"pong": "ok"}
-
 @app.get("/health")
 async def health():
     """Health check básico."""
-    return {
-        "status": "ok", 
-        "version": "2.0.0",
-        "security": "enabled"
-    }
+    logger.info("🔍 Healthcheck endpoint llamado")
+    try:
+        response = {
+            "status": "ok", 
+            "version": "2.0.0",
+            "security": "enabled",
+            "timestamp": datetime.now().isoformat(),
+            "service": "backend"
+        }
+        logger.info(f"✅ Healthcheck exitoso: {response}")
+        return response
+    except Exception as e:
+        logger.error(f"❌ Error en healthcheck: {e}")
+        return {"status": "error", "error": str(e)}
 
 @app.get("/ready")
 async def ready():
     """Endpoint para verificar que el servicio está listo."""
     return {"ready": True}
+
+# Middleware de logging para todas las requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Middleware para logging de todas las requests."""
+    start_time = datetime.now()
+    
+    # Log de la request
+    logger.info(f"🌐 Request: {request.method} {request.url.path} - IP: {request.client.host if request.client else 'unknown'}")
+    
+    # Procesar la request
+    response = await call_next(request)
+    
+    # Calcular tiempo de respuesta
+    process_time = (datetime.now() - start_time).total_seconds()
+    
+    # Log de la response
+    logger.info(f"📤 Response: {response.status_code} - Tiempo: {process_time:.3f}s")
+    
+    return response
 
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
@@ -370,6 +395,40 @@ async def list_strategies(user = Depends(require_auth("strategies"))):
         )
     finally:
         session.close()
+
+@app.get("/debug")
+async def debug():
+    """Endpoint de debug para mostrar información del sistema."""
+    import socket
+    import os
+    
+    try:
+        # Información del sistema
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+        
+        # Información del proceso
+        pid = os.getpid()
+        
+        # Información de la aplicación
+        app_info = {
+            "hostname": hostname,
+            "local_ip": local_ip,
+            "pid": pid,
+            "port": 8000,
+            "timestamp": datetime.now().isoformat(),
+            "environment": {
+                "SECRET_KEY": "***" if os.getenv("SECRET_KEY") else "NOT_SET",
+                "OPENAI_API_KEY": "***" if os.getenv("OPENAI_API_KEY") else "NOT_SET",
+                "TELEGRAM_BOT_TOKEN": "***" if os.getenv("TELEGRAM_BOT_TOKEN") else "NOT_SET"
+            }
+        }
+        
+        logger.info(f"🔍 Debug endpoint llamado: {app_info}")
+        return app_info
+    except Exception as e:
+        logger.error(f"❌ Error en debug endpoint: {e}")
+        return {"error": str(e)}
 
 # =============================================================================
 # ENDPOINT DE INFORMACIÓN DE SEGURIDAD
