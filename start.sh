@@ -1,11 +1,8 @@
 #!/bin/bash
 set -e
 
-# Instalar honcho si no está instalado
-pip install --no-cache-dir honcho
-
 # Crear directorios necesarios
 mkdir -p /app/logs /app/pids
 
-# Lanzar todos los servicios con honcho
-honcho start 
+# Lanzar solo el backend
+cd src/backend && uvicorn main_secure:app --host 0.0.0.0 --port 8000 
