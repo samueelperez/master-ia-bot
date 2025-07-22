@@ -64,6 +64,9 @@ app = FastAPI(
 @app.get("/healthcheck-railway")
 async def healthcheck_railway():
     """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
+    import asyncio
+    # Pequeño delay para asegurar que el servicio esté completamente listo
+    await asyncio.sleep(0.1)
     return {"status": "ok", "service": "backend"}
 
 @app.get("/ping")

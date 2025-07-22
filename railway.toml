@@ -3,7 +3,7 @@ builder = "dockerfile"
 
 [deploy]
 healthcheckPath = "/healthcheck-railway"
-healthcheckTimeout = 600
+healthcheckTimeout = 1800
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
