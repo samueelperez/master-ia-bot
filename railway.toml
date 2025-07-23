@@ -2,13 +2,10 @@
 builder = "dockerfile"
 
 [deploy]
-healthcheckPath = "/"
-healthcheckTimeout = 300
+healthcheckPath = "/healthcheck-railway"
+healthcheckTimeout = 600
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 5
-
-# Forzar nuevo deploy
-# Railway healthcheck test
+restartPolicyMaxRetries = 3
 
 [[services]]
 name = "crypto-ai-bot"

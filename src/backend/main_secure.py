@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 # Imports de la aplicación
 from core.db import SessionLocal
@@ -62,87 +61,25 @@ app = FastAPI(
 # ENDPOINTS DE HEALTHCHECK (INMEDIATOS - SIN MIDDLEWARE)
 # =============================================================================
 
-@app.get("/")
-async def root():
-    """Endpoint raíz ultra simple para Railway."""
-    import asyncio
-    # Pequeño delay para asegurar que FastAPI esté completamente inicializado
-    await asyncio.sleep(0.1)
-    return {"status": "ok", "service": "crypto-ai-bot-backend", "ready": True}
-
-@app.get("/railway-health")
-async def railway_health():
-    """Endpoint ultra simple para Railway - sin middleware."""
-    import asyncio
-    # Pequeño delay para asegurar que FastAPI esté completamente inicializado
-    await asyncio.sleep(0.1)
-    return {"status": "ok", "ready": True}
-
 @app.get("/healthcheck-railway")
 async def healthcheck_railway():
     """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
-    return {"status": "ok", "service": "backend", "timestamp": datetime.now().isoformat()}
-
-@app.get("/test")
-async def test():
-    """Endpoint de prueba ultra simple."""
-    return {"test": "ok"}
+    return {"status": "ok", "service": "backend"}
 
 @app.get("/ping")
 async def ping():
-    """Endpoint ping ultra simple."""
+    """Endpoint ultra simple para Railway healthcheck."""
     return {"pong": "ok"}
 
-@app.get("/health")
-async def health():
-    """Health check básico."""
-    logger.info("🔍 Healthcheck endpoint llamado")
-    try:
-        response = {
-            "status": "ok", 
-            "version": "2.0.0",
-            "security": "enabled",
-            "timestamp": datetime.now().isoformat(),
-            "service": "backend"
-        }
-        logger.info(f"✅ Healthcheck exitoso: {response}")
-        return response
-    except Exception as e:
-        logger.error(f"❌ Error en healthcheck: {e}")
-        return {"status": "error", "error": str(e)}
+@app.get("/healthcheck")
+async def healthcheck():
+    """Healthcheck simple para Railway."""
+    return {"status": "healthy"}
 
 @app.get("/ready")
 async def ready():
     """Endpoint para verificar que el servicio está listo."""
     return {"ready": True}
-
-# =============================================================================
-# MIDDLEWARE DE LOGGING (ANTES DE OTROS MIDDLEWARES)
-# =============================================================================
-
-# Middleware de logging para todas las requests
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    """Middleware para logging de todas las requests."""
-    start_time = datetime.now()
-    
-    # Log de la request
-    logger.info(f"🌐 Request: {request.method} {request.url.path} - IP: {request.client.host if request.client else 'unknown'}")
-    
-    # Procesar la request
-    response = await call_next(request)
-    
-    # Calcular tiempo de respuesta
-    process_time = (datetime.now() - start_time).total_seconds()
-    
-    # Log de la response
-    logger.info(f"📤 Response: {response.status_code} - Tiempo: {process_time:.3f}s")
-    
-    return response
-
-# =============================================================================
-# MIDDLEWARE DE SEGURIDAD
-# =============================================================================
 
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
@@ -182,6 +119,15 @@ async def root():
         "status": "ok",
         "service": "crypto-ai-bot-backend",
         "version": "2.0.0"
+    }
+
+@app.get("/health")
+async def health():
+    """Health check básico."""
+    return {
+        "status": "ok", 
+        "version": "2.0.0",
+        "security": "enabled"
     }
 
 @app.get("/health/simple")
@@ -421,40 +367,6 @@ async def list_strategies(user = Depends(require_auth("strategies"))):
         )
     finally:
         session.close()
-
-@app.get("/debug")
-async def debug():
-    """Endpoint de debug para mostrar información del sistema."""
-    import socket
-    import os
-    
-    try:
-        # Información del sistema
-        hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
-        
-        # Información del proceso
-        pid = os.getpid()
-        
-        # Información de la aplicación
-        app_info = {
-            "hostname": hostname,
-            "local_ip": local_ip,
-            "pid": pid,
-            "port": 8000,
-            "timestamp": datetime.now().isoformat(),
-            "environment": {
-                "SECRET_KEY": "***" if os.getenv("SECRET_KEY") else "NOT_SET",
-                "OPENAI_API_KEY": "***" if os.getenv("OPENAI_API_KEY") else "NOT_SET",
-                "TELEGRAM_BOT_TOKEN": "***" if os.getenv("TELEGRAM_BOT_TOKEN") else "NOT_SET"
-            }
-        }
-        
-        logger.info(f"🔍 Debug endpoint llamado: {app_info}")
-        return app_info
-    except Exception as e:
-        logger.error(f"❌ Error en debug endpoint: {e}")
-        return {"error": str(e)}
 
 # =============================================================================
 # ENDPOINT DE INFORMACIÓN DE SEGURIDAD
