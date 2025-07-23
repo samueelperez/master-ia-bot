@@ -62,6 +62,22 @@ app = FastAPI(
 # ENDPOINTS DE HEALTHCHECK (INMEDIATOS - SIN MIDDLEWARE)
 # =============================================================================
 
+@app.get("/")
+async def root():
+    """Endpoint raíz ultra simple para Railway."""
+    import asyncio
+    # Pequeño delay para asegurar que FastAPI esté completamente inicializado
+    await asyncio.sleep(0.1)
+    return {"status": "ok", "service": "crypto-ai-bot-backend", "ready": True}
+
+@app.get("/railway-health")
+async def railway_health():
+    """Endpoint ultra simple para Railway - sin middleware."""
+    import asyncio
+    # Pequeño delay para asegurar que FastAPI esté completamente inicializado
+    await asyncio.sleep(0.1)
+    return {"status": "ok", "ready": True}
+
 @app.get("/healthcheck-railway")
 async def healthcheck_railway():
     """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
@@ -72,10 +88,10 @@ async def test():
     """Endpoint de prueba ultra simple."""
     return {"test": "ok"}
 
-@app.get("/railway-health")
-async def railway_health():
-    """Endpoint ultra simple para Railway - sin middleware."""
-    return {"status": "ok"}
+@app.get("/ping")
+async def ping():
+    """Endpoint ping ultra simple."""
+    return {"pong": "ok"}
 
 @app.get("/health")
 async def health():

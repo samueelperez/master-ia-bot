@@ -2,10 +2,10 @@
 builder = "dockerfile"
 
 [deploy]
-healthcheckPath = "/railway-health"
-healthcheckTimeout = 1800
+healthcheckPath = "/"
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5
 
 # Forzar nuevo deploy
 # Railway healthcheck test
