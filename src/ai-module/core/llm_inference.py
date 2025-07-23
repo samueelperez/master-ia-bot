@@ -101,8 +101,8 @@ if not OPENAI_API_KEY:
 
 # Inicializar FastAPI
 if OPENAI_API_KEY:
-token_preview = OPENAI_API_KEY[:4] + '...' + OPENAI_API_KEY[-4:]
-print(f"Iniciando servicio con API Key: {token_preview} y BACKEND_URL: {BACKEND_URL}")
+    token_preview = OPENAI_API_KEY[:4] + '...' + OPENAI_API_KEY[-4:]
+    print(f"Iniciando servicio con API Key: {token_preview} y BACKEND_URL: {BACKEND_URL}")
 else:
     print(f"Iniciando servicio sin API Key (modo limitado) y BACKEND_URL: {BACKEND_URL}")
 
@@ -121,13 +121,13 @@ client = None
 
 # Inicializar cliente OpenAI
 if OPENAI_API_KEY:
-try:
-    # Usar la API key de OpenAI proporcionada
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    print("Cliente OpenAI inicializado correctamente.")
-    USE_ANTHROPIC = False
-except Exception as e:
-    print(f"Error al inicializar OpenAI: {e}")
+    try:
+        # Usar la API key de OpenAI proporcionada
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        print("Cliente OpenAI inicializado correctamente.")
+        USE_ANTHROPIC = False
+    except Exception as e:
+        print(f"Error al inicializar OpenAI: {e}")
         client = None
 else:
     print("Cliente OpenAI no disponible - funcionando en modo fallback")
@@ -269,28 +269,27 @@ async def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
             IMPORTANTE: Mantén esta estructura exacta con los emojis y formato. Usa datos reales y análisis técnico profesional.
             """
             
-    messages = [
-        {"role": "system", "content": system_prompt},
+            messages = [
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Análisis solicitado para: {symbol}\nPrecio actual: ${current_price:,.2f}\nTimeframes: {', '.join(req.timeframes)}\n\nConsulta: {req.user_prompt}"}
             ]
             
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.6,
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0.6,
                 max_tokens=600
-        )
-        
+            )
+            
             analysis = response.choices[0].message.content.strip()
-        
-        return {
-            "symbol": symbol,
+            
+            return {
+                "symbol": symbol,
                 "timeframes": req.timeframes,
-        "price": current_price,
-        "analysis": analysis,
+                "price": current_price,
+                "analysis": analysis,
                 "timestamp": time.time()
             }
-            
         except Exception as e:
             print(f"Error en análisis: {e}")
             raise HTTPException(status_code=500, detail="Error procesando análisis")
@@ -342,7 +341,7 @@ async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
                         'rsi': rsi,
                         'macd': {'macd_line': macd_line, 'signal_line': signal_line}
                     }
-            except Exception as e:
+        except Exception as e:
             print(f"Error calculando indicadores: {e}")
             indicators = {'rsi': 50, 'macd': {'macd_line': 0, 'signal_line': 0}}
         
@@ -384,31 +383,31 @@ async def generate_signal(req: SignalRequest) -> Dict[str, Any]:
         
         # Generar explicación
         if client:
-        system_prompt = (
-            "Eres un experto en trading de criptomonedas. "
-            "Genera una explicación clara y concisa para una señal de trading. "
+            system_prompt = (
+                "Eres un experto en trading de criptomonedas. "
+                "Genera una explicación clara y concisa para una señal de trading. "
                 "La explicación debe ser de 2-3 frases, mencionando el análisis técnico."
-        )
-        
-        user_prompt = (
-            f"Genera una explicación para una señal de trading de {symbol} en dirección {direction}. "
-            f"Entrada: {entry:.2f}, Stop Loss: {sl:.2f}, Take Profit 1: {tp1:.2f}, Take Profit 2: {tp2:.2f}. "
-            f"RSI: {rsi:.2f}, MACD: {macd:.2f}."
-        )
-        
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            temperature=0.7,
-            max_tokens=150,
-        )
-        
-        explanation = response.choices[0].message.content.strip()
+            )
+            
+            user_prompt = (
+                f"Genera una explicación para una señal de trading de {symbol} en dirección {direction}. "
+                f"Entrada: {entry:.2f}, Stop Loss: {sl:.2f}, Take Profit 1: {tp1:.2f}, Take Profit 2: {tp2:.2f}. "
+                f"RSI: {rsi:.2f}, MACD: {macd:.2f}."
+            )
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ]
+            
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                temperature=0.7,
+                max_tokens=150,
+            )
+            
+            explanation = response.choices[0].message.content.strip()
         else:
             explanation = f"Señal {direction} para {symbol} basada en análisis técnico. RSI: {rsi:.2f}"
         
@@ -500,12 +499,12 @@ async def generate(req: AnalyzeRequest) -> Dict[str, Any]:
             
             analysis = response.choices[0].message.content.strip()
             
-                return {
+            return {
                 "symbol": symbol,
                 "timeframes": req.timeframes,
                 "price": current_price,
                 "analysis": analysis,
-                    "response_type": "conversation",
+                "response_type": "conversation",
                 "timestamp": time.time()
             }
         else:
@@ -549,7 +548,7 @@ async def analyze_prompt(req: FullPromptRequest) -> Dict[str, Any]:
         
         analysis = response.choices[0].message.content.strip()
             
-            return {
+        return {
             "prompt": req.prompt,
             "analysis": analysis,
             "timestamp": time.time()
