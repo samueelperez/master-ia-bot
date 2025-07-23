@@ -65,15 +65,17 @@ app = FastAPI(
 @app.get("/healthcheck-railway")
 async def healthcheck_railway():
     """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
-    import asyncio
-    # Pequeño delay para asegurar que el servicio esté completamente listo
-    await asyncio.sleep(0.1)
-    return {"status": "ok", "service": "backend"}
+    return {"status": "ok", "service": "backend", "timestamp": datetime.now().isoformat()}
 
 @app.get("/test")
 async def test():
     """Endpoint de prueba ultra simple."""
     return {"test": "ok"}
+
+@app.get("/railway-health")
+async def railway_health():
+    """Endpoint ultra simple para Railway - sin middleware."""
+    return {"status": "ok"}
 
 @app.get("/health")
 async def health():
@@ -98,6 +100,10 @@ async def ready():
     """Endpoint para verificar que el servicio está listo."""
     return {"ready": True}
 
+# =============================================================================
+# MIDDLEWARE DE LOGGING (ANTES DE OTROS MIDDLEWARES)
+# =============================================================================
+
 # Middleware de logging para todas las requests
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
@@ -117,6 +123,10 @@ async def log_requests(request: Request, call_next):
     logger.info(f"📤 Response: {response.status_code} - Tiempo: {process_time:.3f}s")
     
     return response
+
+# =============================================================================
+# MIDDLEWARE DE SEGURIDAD
+# =============================================================================
 
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
