@@ -40,9 +40,9 @@ WORKDIR /app
 # Crear directorios necesarios
 RUN mkdir -p /app/logs /app/pids /app/backup_env
 
-# Script de inicio - IMPORTANTE: configurar permisos ANTES de cambiar usuario
-COPY scripts/start-simple.sh /app/start-simple.sh
-RUN chmod +x /app/start-simple.sh
+# Script de inicio específico para Railway
+COPY scripts/start-railway.sh /app/start-railway.sh
+RUN chmod +x /app/start-railway.sh
 
 # Configurar permisos de archivos ANTES de cambiar usuario
 RUN chown -R crypto_bot:crypto_bot /app
@@ -50,12 +50,12 @@ RUN chown -R crypto_bot:crypto_bot /app
 # Cambiar a usuario no-root DESPUÉS de configurar permisos
 USER crypto_bot
 
-# Exponer puertos
-EXPOSE 3000 8000 9004 9005
+# Exponer solo el puerto principal para Railway
+EXPOSE 8000
 
-# Health check
+# Health check interno (para debugging)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/ping || exit 1
 
-# Comando por defecto
-CMD ["/app/start-simple.sh"] 
+# Comando por defecto - usar script específico para Railway
+CMD ["/app/start-railway.sh"] 
