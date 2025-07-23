@@ -8,10 +8,9 @@ import sys
 import logging
 import asyncio
 import uuid
-from typing import Dict, Any, List
+from typing import Dict, Any
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pydantic import BaseModel
 
 # Cargar variables de entorno desde .env
 try:
@@ -67,11 +66,8 @@ from core.models.request_models import (
 )
 from core.services.advanced_strategies_service import AdvancedStrategiesService, StrategyResult, test_router
 
-# Modelo para el endpoint /generate
-class GenerateRequest(BaseModel):
-    symbol: str
-    timeframes: List[str]
-    user_prompt: str = ""
+# Importar modelos y funciones de llm_inference para el endpoint /generate
+from core.llm_inference import AnalyzeRequest, generate
 
 # Configurar logging
 log_config = SecurityConfig.get_log_config()
@@ -729,7 +725,7 @@ async def advanced_strategy(
 @app.post("/generate")
 async def generate_endpoint(
     request: Request,
-    req: GenerateRequest,
+    req: AnalyzeRequest,
     token: str = Depends(verify_token)
 ):
     """Endpoint /generate para compatibilidad con el Telegram Bot."""
@@ -740,27 +736,9 @@ async def generate_endpoint(
     logger.info(f"Generate endpoint - ID: {request_id}, IP: {client_ip}, Symbol: {req.symbol}")
     
     try:
-        # Generar análisis con IA
-        analysis = await ai_service.generate_crypto_analysis(
-            symbol=req.symbol,
-            price=0, # No se puede obtener precio real aquí, se asume 0
-            timeframes=req.timeframes,
-            user_prompt=req.user_prompt or "",
-            max_tokens=800 # Tamaño fijo para /generate
-        )
-        
-        response = {
-            "request_id": request_id,
-            "symbol": req.symbol,
-            "timeframes": req.timeframes,
-            "analysis": analysis,
-            "metadata": {
-                "generated_at": datetime.utcnow().isoformat()
-            }
-        }
-        
+        result = await generate(req)
         logger.info(f"Generate completado - ID: {request_id}")
-        return response
+        return result
     except HTTPException:
         raise
     except Exception as e:

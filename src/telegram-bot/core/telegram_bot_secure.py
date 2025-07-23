@@ -41,15 +41,15 @@ except ImportError:
 
 # Imports de seguridad locales
 try:
-from .security_config import (
-    TelegramSecurityConfig, 
-    TelegramRateLimiter, 
-    TelegramInputValidator, 
-    TelegramSecureLogger
-)
-from .secure_memory_manager import SecureMemoryManager
-from .referral_verification import referral_verifier
-from .user_verification import user_verification
+    from .security_config import (
+        TelegramSecurityConfig, 
+        TelegramRateLimiter, 
+        TelegramInputValidator, 
+        TelegramSecureLogger
+    )
+    from .secure_memory_manager import SecureMemoryManager
+    from .referral_verification import referral_verifier
+    from .user_verification import user_verification
 except ImportError:
     # Fallback para ejecución directa
     from security_config import (
@@ -441,11 +441,11 @@ def build_secure_payload(user_id: int, text: str) -> Dict[str, Any]:
             break
     else:
         # Fallback: buscar símbolos de 3-4 letras
-    common_symbols = ["BTC", "ETH", "ADA", "DOT", "SOL", "MATIC", "AVAX", "LINK", "DOGE", "SHIB", "XRP"]
-    for s in common_symbols:
-        if s.lower() in sanitized_text.lower():
-            symbol = s
-            break
+        common_symbols = ["BTC", "ETH", "ADA", "DOT", "SOL", "MATIC", "AVAX", "LINK", "DOGE", "SHIB", "XRP"]
+        for s in common_symbols:
+            if s.lower() in sanitized_text.lower():
+                symbol = s
+                break
 
     # Detectar timeframe
     timeframe_patterns = {
@@ -919,7 +919,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         for s in common_symbols:
             if s.lower() in text_lower:
                 symbol = s
-            break
+                break
     
     # Extraer timeframe - buscar el más específico (más corto primero)
     timeframe = "1h"  # Default
@@ -940,7 +940,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 detected_timeframes.append("15m")
             elif "30" in text_lower and ("30 minuto" in text_lower or "30 minutos" in text_lower):
                 detected_timeframes.append("30m")
-    else:
+            else:
                 detected_timeframes.append("5m")  # Default para minutos
         elif "hora" in text_lower or "horas" in text_lower:
             detected_timeframes.append("1h")
@@ -959,9 +959,9 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     crypto_specified = symbol != "BTC"  # Si se detectó un símbolo específico
     
     # Construir payload seguro
-        payload = {
-            "symbol": symbol,
-            "timeframe": timeframe,
+    payload = {
+        "symbol": symbol,
+        "timeframe": timeframe,
         "strategy_name": "scalping",
         "request_id": f"signal_{user_id}_{int(datetime.now().timestamp())}",
         "current_price": 0,  # Se obtendrá del AI Module
@@ -1010,7 +1010,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 raise search_error
         else:
             # Usar siempre el endpoint /generate como en simulate_bot.py
-        data = await secure_ai_call(endpoint, payload, user_id)
+            data = await secure_ai_call(endpoint, payload, user_id)
 
         if not data:
             error_msg = "❌ Error comunicándose con el servicio de IA. Intenta de nuevo más tarde."
@@ -1129,7 +1129,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         risk = abs(entry - stop)
                         reward = abs(entry - take)
                         risk_reward = f"{reward/risk:.2f}" if risk > 0 else "0.00"
-        else:
+                    else:
                         risk_reward = "0.80"
                 except:
                     risk_reward = "0.80"
@@ -1226,7 +1226,7 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # Enviar respuesta
         try:
-        await update.message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(response_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
             secure_logger.safe_log(f"Error enviando respuesta: {e}", "error", user_id)
             # Fallback sin markdown

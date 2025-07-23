@@ -58,13 +58,8 @@ app = FastAPI(
 )
 
 # =============================================================================
-# ENDPOINTS DE HEALTHCHECK (INMEDIATOS - SIN MIDDLEWARE)
+# ENDPOINTS DE HEALTHCHECK (ANTES DE MIDDLEWARE)
 # =============================================================================
-
-@app.get("/healthcheck-railway")
-async def healthcheck_railway():
-    """Endpoint ultra simple para Railway healthcheck - disponible inmediatamente."""
-    return {"status": "ok", "service": "backend"}
 
 @app.get("/ping")
 async def ping():
@@ -75,11 +70,6 @@ async def ping():
 async def healthcheck():
     """Healthcheck simple para Railway."""
     return {"status": "healthy"}
-
-@app.get("/ready")
-async def ready():
-    """Endpoint para verificar que el servicio está listo."""
-    return {"ready": True}
 
 # Middleware de hosts confiables (debe ir antes que CORS)
 app.add_middleware(
