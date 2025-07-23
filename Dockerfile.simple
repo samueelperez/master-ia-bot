@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     nodejs \
     npm \
+    net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear usuario no-root para seguridad
@@ -38,11 +39,11 @@ RUN npm ci --only=production
 WORKDIR /app
 
 # Crear directorios necesarios
-RUN mkdir -p /app/logs /app/pids /app/backup_env
+RUN mkdir -p /app/logs /app/pids /app/debug
 
-# Script de inicio específico para Railway
-COPY scripts/start-railway.sh /app/start-railway.sh
-RUN chmod +x /app/start-railway.sh
+# Script de depuración para Railway
+COPY scripts/debug_railway.sh /app/debug_railway.sh
+RUN chmod +x /app/debug_railway.sh
 
 # Configurar permisos de archivos ANTES de cambiar usuario
 RUN chown -R crypto_bot:crypto_bot /app
@@ -57,5 +58,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/ping || exit 1
 
-# Comando por defecto - usar script específico para Railway
-CMD ["/app/start-railway.sh"] 
+# Comando por defecto - usar script de depuración
+CMD ["/app/debug_railway.sh"] 
