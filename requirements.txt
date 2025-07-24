@@ -1,50 +1,29 @@
 # ============================================
-# DEPENDENCIAS PARA RENDER.COM
+# DEPENDENCIAS MÍNIMAS PARA RENDER.COM
 # ============================================
-# Este archivo incluye todas las dependencias necesarias para el backend
-# Generado automáticamente para Render deployment
-# Compatible con Python 3.13 - SIN pandas/numpy
+# Versión ultra simplificada para compatibilidad con Python 3.13
+# Solo dependencias esenciales para el backend básico
 
-# FastAPI y dependencias
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
-python-multipart==0.0.6
-
-# Cliente HTTP
-httpx==0.25.2
-aiohttp==3.9.1
-
-# Web scraping
-beautifulsoup4==4.12.2
-
-# Bot de Telegram
-python-telegram-bot==20.7
-
-# Base de datos
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-
-# Trading
-ccxt==4.1.77
-
-# Análisis técnico (sin pandas)
-# pandas_ta==0.3.14b  # Comentado - requiere pandas
-
-# Autenticación
-PyJWT==2.8.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.2
-
-# AI/ML
-openai==1.3.7
+# FastAPI y servidor
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
 
 # Utilidades básicas
 python-dotenv==1.0.0
-psutil==5.9.8
-nest_asyncio==1.6.0
+python-multipart==0.0.6
 
-# Análisis de datos - REMOVIDO para compatibilidad
-# pandas>=2.1.0,<2.2.0  # Comentado - problemas con Python 3.13
-# numpy>=1.24.0,<1.26.0  # Comentado - problemas con Python 3.13 
+# Cliente HTTP
+httpx==0.24.1
+
+# Base de datos
+sqlalchemy==2.0.15
+psycopg2-binary==2.9.6
+
+# Autenticación
+PyJWT==2.7.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+# Utilidades del sistema
+psutil==5.9.5
+nest_asyncio==1.5.6 
