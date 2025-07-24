@@ -1,0 +1,38 @@
+# Dockerfile optimizado para Render.com
+FROM python:3.11-slim
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración
+COPY requirements/ ./requirements/
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements/common.txt
+
+# Copiar código fuente
+COPY src/ ./src/
+COPY scripts/ ./scripts/
+
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/pids
+
+# Script de inicio para Render
+COPY scripts/start-render.sh /app/start-render.sh
+RUN chmod +x /app/start-render.sh
+
+# Exponer puerto
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/ping || exit 1
+
+# Comando de inicio
+CMD ["/app/start-render.sh"] 
