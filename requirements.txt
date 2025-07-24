@@ -15,8 +15,8 @@ python-multipart==0.0.6
 # Cliente HTTP
 httpx==0.24.1
 
-# Base de datos
-sqlalchemy==2.0.15
+# Base de datos - Versión compatible con Python 3.13
+sqlalchemy==2.0.23
 psycopg2-binary==2.9.6
 
 # Autenticación
