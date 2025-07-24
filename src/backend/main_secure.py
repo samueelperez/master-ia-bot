@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import json
+import httpx
+import asyncio
 
 # Comentado temporalmente para compatibilidad con Python 3.13
 # from sqlalchemy.orm import Session
@@ -50,6 +52,81 @@ class RateLimiter:
         return True
 
 rate_limiter = RateLimiter()
+
+# Cliente HTTP para obtener precios
+async def get_price_from_binance(symbol: str) -> float:
+    """Obtener precio desde Binance."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = f"https://api.binance.com/api/v3/ticker/price"
+            params = {"symbol": f"{symbol.upper()}USDT"}
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            return float(data.get("price", 0))
+    except Exception as e:
+        logger.error(f"Error obteniendo precio de Binance para {symbol}: {e}")
+        return 0.0
+
+async def get_price_from_coingecko(symbol: str) -> float:
+    """Obtener precio desde CoinGecko."""
+    try:
+        # Mapeo de símbolos a IDs de CoinGecko
+        symbol_mapping = {
+            "BTC": "bitcoin", "ETH": "ethereum", "ADA": "cardano",
+            "DOT": "polkadot", "SOL": "solana", "MATIC": "matic-network",
+            "AVAX": "avalanche-2", "LINK": "chainlink", "UNI": "uniswap",
+            "AAVE": "aave", "ATOM": "cosmos", "ALGO": "algorand"
+        }
+        
+        coin_id = symbol_mapping.get(symbol.upper(), symbol.lower())
+        
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            url = "https://api.coingecko.com/api/v3/simple/price"
+            params = {
+                "ids": coin_id,
+                "vs_currencies": "usd"
+            }
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if coin_id in data:
+                return float(data[coin_id].get("usd", 0))
+            return 0.0
+    except Exception as e:
+        logger.error(f"Error obteniendo precio de CoinGecko para {symbol}: {e}")
+        return 0.0
+
+async def get_current_price(symbol: str) -> float:
+    """Obtener precio actual con fallback a múltiples fuentes."""
+    # Intentar Binance primero
+    price = await get_price_from_binance(symbol)
+    if price > 0:
+        return price
+    
+    # Fallback a CoinGecko
+    price = await get_price_from_coingecko(symbol)
+    if price > 0:
+        return price
+    
+    # Fallback a precios hardcodeados
+    fallback_prices = {
+        "BTC": 65000.0,
+        "ETH": 3400.0,
+        "SOL": 120.0,
+        "ADA": 0.5,
+        "DOT": 7.0,
+        "MATIC": 0.8,
+        "AVAX": 35.0,
+        "LINK": 15.0,
+        "UNI": 8.0,
+        "AAVE": 250.0,
+        "ATOM": 8.0,
+        "ALGO": 0.2
+    }
+    
+    return fallback_prices.get(symbol.upper(), 0.0)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -112,7 +189,8 @@ async def health_detailed():
         "timestamp": time.time(),
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "database": "disabled"  # Temporal
+        "database": "disabled",  # Temporal
+        "price_service": "enabled"  # Nuevo
     }
 
 # Endpoints principales
@@ -123,7 +201,12 @@ async def root():
         "message": "🚀 Crypto AI Bot Backend",
         "version": "1.0.0",
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
+        "endpoints": {
+            "health": "/ping, /healthcheck, /health/simple, /health/detailed",
+            "prices": "/api/price/{symbol}",
+            "status": "/api/status"
+        }
     }
 
 @app.get("/api/status")
@@ -137,9 +220,63 @@ async def api_status():
             "database": "disabled",  # Temporal
             "indicators": "disabled",  # Temporal
             "trading": "disabled",  # Temporal
-            "ai": "disabled"  # Temporal
+            "ai": "disabled",  # Temporal
+            "price_service": "enabled"  # Nuevo
         }
     }
+
+# Endpoint de precios (NUEVO)
+@app.get("/api/price/{symbol}")
+async def get_price(symbol: str):
+    """Obtener precio actual de una criptomoneda."""
+    try:
+        symbol = symbol.upper()
+        price = await get_current_price(symbol)
+        
+        if price > 0:
+            return {
+                "symbol": symbol,
+                "price": price,
+                "currency": "USD",
+                "timestamp": time.time(),
+                "source": "binance/coingecko"
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No se pudo obtener precio para {symbol}"
+            )
+    except Exception as e:
+        logger.error(f"Error obteniendo precio para {symbol}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error interno obteniendo precio para {symbol}"
+        )
+
+# Endpoint para múltiples precios
+@app.get("/api/prices")
+async def get_multiple_prices(symbols: str):
+    """Obtener precios de múltiples criptomonedas."""
+    try:
+        symbol_list = [s.strip().upper() for s in symbols.split(",")]
+        prices = {}
+        
+        for symbol in symbol_list:
+            price = await get_current_price(symbol)
+            if price > 0:
+                prices[symbol] = price
+        
+        return {
+            "prices": prices,
+            "timestamp": time.time(),
+            "currency": "USD"
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo múltiples precios: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno obteniendo precios"
+        )
 
 # Endpoints temporales
 @app.get("/api/indicators")
