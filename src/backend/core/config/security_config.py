@@ -30,11 +30,11 @@ class SecurityConfig:
     # CORS y Orígenes
     ALLOWED_ORIGINS = os.getenv(
         "BACKEND_ALLOWED_ORIGINS", 
-        "http://localhost:3000,http://127.0.0.1:3000"
+        "http://localhost:3000,http://127.0.0.1:3000,https://*.onrender.com"
     ).split(",")
     ALLOWED_HOSTS = os.getenv(
         "BACKEND_ALLOWED_HOSTS",
-        "localhost,127.0.0.1"
+        "localhost,127.0.0.1,*.onrender.com"
     ).split(",")
     
     # Autenticación

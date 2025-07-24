@@ -120,7 +120,7 @@ python src/telegram-bot/core/telegram_bot_secure.py
 cd src/webapp && npm run dev
 ```
 
-## 🚀 Despliegue en Railway
+## 🚀 Despliegue en Render
 
 ### 1. **Preparar el Repositorio**
 ```bash
@@ -129,20 +129,20 @@ git commit -m "🚀 Configuración inicial lista"
 git push origin main
 ```
 
-### 2. **Crear Proyecto en Railway**
-1. Ve a [Railway.app](https://railway.app)
+### 2. **Crear Proyecto en Render**
+1. Ve a [Render.com](https://render.com)
 2. Crea cuenta o inicia sesión
 3. Haz clic en "New Project"
 4. Selecciona "Deploy from GitHub repo"
 5. Conecta tu repositorio
 
-### 3. **Configurar Variables de Entorno en Railway**
-En Railway, ve a la pestaña "Variables" y configura todas las variables de `config/env.example` con tus valores reales.
+### 3. **Configurar Variables de Entorno en Render**
+En Render, ve a la pestaña "Environment" y configura todas las variables de `config/env.example` con tus valores reales.
 
 ### 4. **Desplegar**
-Railway detectará automáticamente la configuración y desplegará tu aplicación.
+Render detectará automáticamente la configuración y desplegará tu aplicación.
 
-**📖 Para instrucciones detalladas, consulta [RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md)**
+**📖 Para instrucciones detalladas, consulta [RENDER_DEPLOYMENT_COMPLETE.md](RENDER_DEPLOYMENT_COMPLETE.md)**
 
 ## 🔐 Seguridad
 

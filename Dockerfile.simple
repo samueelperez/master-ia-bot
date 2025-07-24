@@ -1,4 +1,4 @@
-# Dockerfile simple para Railway
+# Dockerfile simple para Render
 FROM python:3.11-slim
 
 # Instalar dependencias del sistema
@@ -19,7 +19,7 @@ WORKDIR /app
 
 # Copiar archivos de configuración
 COPY requirements/ ./requirements/
-COPY railway.toml ./
+COPY render.yaml ./
 
 # Instalar dependencias Python
 RUN pip install --no-cache-dir --upgrade pip
@@ -41,9 +41,9 @@ WORKDIR /app
 # Crear directorios necesarios
 RUN mkdir -p /app/logs /app/pids /app/debug
 
-# Script de inicio SOLO backend para Railway
-COPY scripts/start-railway-only-backend.sh /app/start-railway-only-backend.sh
-RUN chmod +x /app/start-railway-only-backend.sh
+# Script de inicio SOLO backend para Render
+COPY scripts/start-render.sh /app/start-render.sh
+RUN chmod +x /app/start-render.sh
 
 # Configurar permisos de archivos ANTES de cambiar usuario
 RUN chown -R crypto_bot:crypto_bot /app
@@ -51,12 +51,12 @@ RUN chown -R crypto_bot:crypto_bot /app
 # Cambiar a usuario no-root DESPUÉS de configurar permisos
 USER crypto_bot
 
-# Exponer solo el puerto principal para Railway
+# Exponer solo el puerto principal para Render
 EXPOSE 8000
 
 # Health check interno (para debugging)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/ping || exit 1
 
-# Comando por defecto - SOLO backend para Railway
-CMD ["/app/start-railway-only-backend.sh"] 
+# Comando por defecto - SOLO backend para Render
+CMD ["/app/start-render.sh"] 

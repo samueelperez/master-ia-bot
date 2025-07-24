@@ -9,7 +9,7 @@
 .env.production
 .env.testing
 .env.secrets
-.env.railway
+.env.render
 *.env
 config/.env*
 config/env.secrets
@@ -231,9 +231,9 @@ cache/
 # Docker
 .dockerignore
 
-# Railway
-.railway/
-.env.railway
+# Render
+.render/
+.env.render
 
 # Model files (large files)
 *.bin

@@ -10,7 +10,7 @@
 - **Análisis Técnico**: 40+ estrategias de indicadores implementadas
 - **Interfaz Multiplataforma**: Telegram Bot + Webapp
 - **Seguridad Robusta**: Sistema completo de autenticación y validación
-- **Despliegue Cloud**: Configuración optimizada para Railway
+- **Despliegue Cloud**: Configuración optimizada para Render
 
 ---
 
@@ -235,8 +235,8 @@
 - **Health Checks**: Monitoreo automático
 - **Volume Mounts**: Persistencia de datos
 
-### **Railway Deployment:**
-- **Configuración Optimizada**: `railway.toml`
+### **Render Deployment:**
+- **Configuración Optimizada**: `render.yaml`
 - **Scripts de Inicio**: `start.sh`
 - **Variables de Entorno**: Gestión centralizada
 - **Auto-scaling**: Escalabilidad automática
@@ -315,7 +315,7 @@ DATA_SERVICE_URL=http://localhost:9005
 - ✅ Sistema de Seguridad (100%)
 - ✅ Documentación (100%)
 - ✅ Configuración Docker (100%)
-- ✅ Despliegue Railway (100%)
+- ✅ Despliegue Render (100%)
 
 ### **🎯 Funcionalidades Implementadas:**
 - ✅ Análisis técnico con 40+ indicadores

@@ -63,12 +63,12 @@ app = FastAPI(
 
 @app.get("/ping")
 async def ping():
-    """Endpoint ultra simple para Railway healthcheck."""
+    """Endpoint ultra simple para Render healthcheck."""
     return {"pong": "ok"}
 
 @app.get("/healthcheck")
 async def healthcheck():
-    """Healthcheck simple para Railway."""
+    """Healthcheck simple para Render."""
     return {"status": "healthy"}
 
 # Middleware de hosts confiables (debe ir antes que CORS)
@@ -122,7 +122,7 @@ async def health():
 
 @app.get("/health/simple")
 async def health_simple():
-    """Health check simple y rápido para Railway."""
+    """Health check simple y rápido para Render."""
     return {"status": "ok"}
 
 @app.get("/health/detailed")

@@ -10,7 +10,7 @@ Un bot de trading de criptomonedas impulsado por IA que combina análisis técni
 - **Señales de Trading**: Generación automática de señales de compra/venta
 - **Bot de Telegram**: Interfaz conversacional para consultas y alertas
 - **Webapp**: Dashboard web para monitoreo y configuración
-- **Despliegue en Railway**: Configuración lista para producción
+- **Despliegue en Render**: Configuración lista para producción
 
 ## 🏗️ Arquitectura
 
@@ -123,20 +123,20 @@ python src/data-service/main.py &
 cd src/webapp && npm run dev &
 ```
 
-## 🚀 Despliegue en Railway
+## 🚀 Despliegue en Render
 
 ### 1. Preparar el Repositorio
 
 ```bash
 # Asegúrate de que todos los archivos estén committeados
 git add .
-git commit -m "🚀 Preparando para despliegue en Railway"
+git commit -m "🚀 Preparando para despliegue en Render"
 git push origin main
 ```
 
-### 2. Crear Proyecto en Railway
+### 2. Crear Proyecto en Render
 
-1. Ve a [Railway.app](https://railway.app)
+1. Ve a [Render.com](https://render.com)
 2. Crea una nueva cuenta o inicia sesión
 3. Haz clic en "New Project"
 4. Selecciona "Deploy from GitHub repo"
@@ -144,13 +144,13 @@ git push origin main
 
 ### 3. Configurar Variables de Entorno
 
-En Railway, ve a la pestaña "Variables" y configura todas las variables de `config/env.example` con tus valores reales.
+En Render, ve a la pestaña "Environment" y configura todas las variables de `config/env.example` con tus valores reales.
 
 ### 4. Desplegar
 
-Railway detectará automáticamente la configuración y desplegará tu aplicación.
+Render detectará automáticamente la configuración y desplegará tu aplicación.
 
-**📖 Para instrucciones detalladas, consulta [RAILWAY_DEPLOYMENT_GUIDE.md](RAILWAY_DEPLOYMENT_GUIDE.md)**
+**📖 Para instrucciones detalladas, consulta [RENDER_DEPLOYMENT_COMPLETE.md](RENDER_DEPLOYMENT_COMPLETE.md)**
 
 ## 🔐 Seguridad
 

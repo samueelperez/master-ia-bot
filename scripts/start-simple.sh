@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script de inicio simple para Railway
+# Script de inicio simple para Render
 set -e
 
 echo "🚀 Iniciando Crypto AI Bot..."

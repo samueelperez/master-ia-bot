@@ -1,4 +1,4 @@
-# Dockerfile simple y directo para Railway
+# Dockerfile simple y directo para Render
 FROM python:3.11-slim
 
 # Instalar dependencias del sistema
@@ -15,7 +15,7 @@ WORKDIR /app
 
 # Copiar archivos de configuración
 COPY requirements/ ./requirements/
-COPY railway.toml ./
+COPY render.yaml ./
 
 # Instalar dependencias Python
 RUN pip install --no-cache-dir --upgrade pip
