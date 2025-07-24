@@ -3,7 +3,7 @@
 # ============================================
 # Este archivo incluye todas las dependencias necesarias para el backend
 # Generado automáticamente para Render deployment
-# Compatible con Python 3.13
+# Compatible con Python 3.13 - SIN pandas/numpy
 
 # FastAPI y dependencias
 fastapi==0.104.1
@@ -29,8 +29,8 @@ psycopg2-binary==2.9.9
 # Trading
 ccxt==4.1.77
 
-# Análisis técnico
-pandas_ta==0.3.14b
+# Análisis técnico (sin pandas)
+# pandas_ta==0.3.14b  # Comentado - requiere pandas
 
 # Autenticación
 PyJWT==2.8.0
@@ -45,6 +45,6 @@ python-dotenv==1.0.0
 psutil==5.9.8
 nest_asyncio==1.6.0
 
-# Análisis de datos - Versiones compatibles con Python 3.13
-pandas>=2.1.0,<2.2.0
-numpy>=1.24.0,<1.26.0 
+# Análisis de datos - REMOVIDO para compatibilidad
+# pandas>=2.1.0,<2.2.0  # Comentado - problemas con Python 3.13
+# numpy>=1.24.0,<1.26.0  # Comentado - problemas con Python 3.13 
