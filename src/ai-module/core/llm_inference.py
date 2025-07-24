@@ -160,9 +160,26 @@ class FullPromptRequest(BaseModel):
 
 # Precios de fallback
 FALLBACK_PRICES: Dict[str, float] = {
-    "BTC": 50000.0,
-    "ETH": 2000.0,
-    "SOL": 20.0,
+    "BTC": 65000.0,
+    "ETH": 3500.0,
+    "SOL": 150.0,
+    "ADA": 0.5,
+    "DOT": 7.0,
+    "MATIC": 0.8,
+    "AVAX": 35.0,
+    "LINK": 15.0,
+    "DOGE": 0.12,
+    "SHIB": 0.00002,
+    "XRP": 0.55,
+    "JASMY": 0.005,
+    "PEPE": 0.00001,
+    "BONK": 0.00002,
+    "WIF": 0.5,
+    "FLOKI": 0.00002,
+    "BOME": 0.00001,
+    "MEME": 0.02,
+    "BOOK": 0.1,
+    "POPCAT": 0.00001
 }
 
 async def fetch_price_coingecko(symbol: str) -> Optional[float]:
@@ -286,7 +303,7 @@ async def analyze(req: AnalyzeRequest) -> Dict[str, Any]:
             return {
                 "symbol": symbol,
                 "timeframes": req.timeframes,
-                "price": current_price,
+                "current_price": current_price,
                 "analysis": analysis,
                 "timestamp": time.time()
             }

@@ -186,14 +186,20 @@ async def process_message(text: str) -> None:
         symbol = data.get("symbol", "Crypto")
         timeframes = data.get("timeframes", ["1d"])
         timeframe = timeframes[0] if timeframes else "1d"
-        current_price = data.get("price", 0)
+        current_price = data.get("current_price", 0)
         analysis = data.get("analysis", "<sin análisis>")
         
         # No añadir nota sobre los factores fundamentales, ya que queremos que se obtengan de fuentes externas
         
+        # Formatear precio correctamente
+        if isinstance(current_price, (int, float)) and current_price > 0:
+            formatted_price = f"${current_price:,.2f}"
+        else:
+            formatted_price = "$0.00"
+        
         msg = (
             f"🧠 Análisis IA para {symbol} ({timeframe}):\n\n"
-            f"💰 Precio actual: ${current_price}\n\n"
+            f"💰 Precio actual: {formatted_price}\n\n"
             f"{analysis}\n\n"
             "⚠️ No es asesoramiento financiero."
         )

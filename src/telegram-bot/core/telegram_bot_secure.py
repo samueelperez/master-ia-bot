@@ -1031,9 +1031,15 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             current_price = data.get("current_price", 0)
             analysis = data.get("analysis", "<sin análisis>")
             
+            # Formatear precio correctamente
+            if isinstance(current_price, (int, float)) and current_price > 0:
+                formatted_price = f"${current_price:,.2f}"
+            else:
+                formatted_price = "$0.00"
+            
             response_text = (
                 f"🧠 Análisis IA para {symbol} ({timeframe}):\n\n"
-                f"💰 Precio actual: ${current_price}\n\n"
+                f"💰 Precio actual: {formatted_price}\n\n"
                 f"{analysis}\n\n"
                 "⚠️ No es asesoramiento financiero."
             )
