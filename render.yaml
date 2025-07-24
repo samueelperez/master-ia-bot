@@ -18,20 +18,40 @@ services:
         value: 3.11
       - key: BACKEND_PORT
         value: 8000
-      - key: ENABLE_DOCS
-        value: false
       - key: ENVIRONMENT
         value: production
-      - key: BACKEND_ALLOWED_ORIGINS
-        value: https://crypto-ai-bot-backend.onrender.com,http://localhost:3000
-      - key: BACKEND_ALLOWED_HOSTS
-        value: crypto-ai-bot-backend.onrender.com,localhost,127.0.0.1
+      - key: ENABLE_DOCS
+        value: false
+      - key: BACKEND_API_SECRET_KEY
+        value: 7PLxbHeX8Zb4JslqP_cYQwcstn3b0wn_qWOblJH_gYQ
+      - key: SECRET_KEY
+        value: A$TUTo58%z&hHE5xkWw%GlK1rKUkWdZuh3eXggLr&yOtUvBJ6nY6W5&LUN*k4XIU
+      - key: JWT_SECRET_KEY
+        value: sQyrgWZ871tN82IjKVrx&0KP1p!y50#XN0#E!n$C0uEU%LZ*6Zhw@1cSGBp5xGHK
+      - key: ENCRYPTION_KEY
+        value: CCk9aV*F*ND2Ro7!zn6l2@b0D9A5oLYJ
       - key: BACKEND_RATE_LIMIT_PER_MINUTE
         value: 60
       - key: BACKEND_RATE_LIMIT_PER_HOUR
         value: 1000
       - key: BACKEND_RATE_LIMIT_PER_DAY
         value: 10000
+      - key: BACKEND_HTTP_TIMEOUT
+        value: 30
+      - key: BACKEND_DB_TIMEOUT
+        value: 10
+      - key: BACKEND_CCXT_TIMEOUT
+        value: 15
+      - key: BACKEND_MAX_LIMIT_OHLCV
+        value: 1000
+      - key: BACKEND_MAX_INDICATORS_PER_REQUEST
+        value: 50
+      - key: BACKEND_MAX_PAYLOAD_SIZE
+        value: 1048576
+      - key: BACKEND_DEFAULT_EXCHANGE
+        value: binance
+      - key: BACKEND_EXCHANGE_SANDBOX
+        value: true
     healthCheckPath: /ping
     autoDeploy: true
     numInstances: 1 
