@@ -297,22 +297,50 @@ async def secure_ai_call(endpoint: str, payload: Dict[str, Any], user_id: int) -
     
     return None
 
-# Función para obtener precio actual (igual que simulate_bot.py)
+# Función para obtener precio actual (actualizada para usar el backend)
 async def get_current_price(symbol: str) -> float:
     """
-    Obtiene el precio actual de Binance para el símbolo.
-    Misma lógica que simulate_bot.py
+    Obtiene el precio actual usando el backend de Render.
     """
     try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}USDT"
+        # Intentar obtener precio del backend primero
+        backend_url = "https://master-ia-bot.onrender.com"
+        url = f"{backend_url}/api/price/{symbol}"
+        
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
             resp.raise_for_status()
             data = resp.json()
-            return float(data.get("price", 0))
+            price = float(data.get("price", 0))
+            
+            if price > 0:
+                secure_logger.safe_log(f"Precio obtenido del backend para {symbol}: ${price}", "info")
+                return price
+            else:
+                raise Exception("Precio 0 del backend")
+                
     except Exception as e:
-        secure_logger.safe_log(f"Error obteniendo precio de Binance: {e}", "warning")
-        # Precios de fallback - mismos que simulate_bot.py
+        secure_logger.safe_log(f"Error obteniendo precio del backend para {symbol}: {e}", "warning")
+        
+        # Fallback: intentar Binance directamente
+        try:
+            url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}USDT"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+                price = float(data.get("price", 0))
+                
+                if price > 0:
+                    secure_logger.safe_log(f"Precio obtenido de Binance para {symbol}: ${price}", "info")
+                    return price
+                else:
+                    raise Exception("Precio 0 de Binance")
+                    
+        except Exception as e2:
+            secure_logger.safe_log(f"Error obteniendo precio de Binance para {symbol}: {e2}", "warning")
+        
+        # Precios de fallback como último recurso
         fallback_prices = {
             "BTC": 65000.0,
             "ETH": 3500.0,
@@ -326,7 +354,10 @@ async def get_current_price(symbol: str) -> float:
             "SHIB": 0.00002,
             "XRP": 0.55
         }
-        return fallback_prices.get(symbol, 100.0)
+        
+        fallback_price = fallback_prices.get(symbol, 100.0)
+        secure_logger.safe_log(f"Usando precio de fallback para {symbol}: ${fallback_price}", "warning")
+        return fallback_price
 
 async def try_multiple_cryptos_and_timeframes(user_id: int, text: str) -> Optional[Dict[str, Any]]:
     """Analiza múltiples criptomonedas y timeframes para encontrar la mejor señal."""
@@ -563,13 +594,13 @@ async def build_secure_payload(user_id: int, text: str) -> dict:
         return payload, "prompt"
     else:
         # Si no es señal ni conversacional, flujo normal de análisis
-    payload = {
-        "symbol": symbol,
-        "timeframes": timeframes,
-        "user_prompt": sanitized_text,
-        "current_price": current_price
-    }
-    return payload, "generate"
+        payload = {
+            "symbol": symbol,
+            "timeframes": timeframes,
+            "user_prompt": sanitized_text,
+            "current_price": current_price
+        }
+        return payload, "generate"
 
 # Procesar mensaje con validación y seguridad
 @require_auth
@@ -605,8 +636,8 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 # Si se especificó una criptomoneda, probar múltiples timeframes
                 data = await try_multiple_timeframes(payload, user_id)
         else:
-        # Usar siempre el endpoint /generate como en simulate_bot.py
-        data = await secure_ai_call(endpoint, payload, user_id)
+            # Usar siempre el endpoint /generate como en simulate_bot.py
+            data = await secure_ai_call(endpoint, payload, user_id)
         
         if not data:
             error_msg = "❌ Error comunicándose con el servicio de IA. Intenta de nuevo más tarde."
@@ -697,11 +728,11 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 if isinstance(signal, str):
                     signal_upper = signal.upper()
                     if signal_upper in ["BUY", "COMPRAR", "LONG"]:
-                    signal_text = "LONG"
-                    signal_emoji = "📈"
+                        signal_text = "LONG"
+                        signal_emoji = "📈"
                     elif signal_upper in ["SELL", "VENDER", "SHORT"]:
-                    signal_text = "SHORT"
-                    signal_emoji = "📉"
+                        signal_text = "SHORT"
+                        signal_emoji = "📉"
                 
                 # Formatear precios
                 entry_str = f"${entry:,.2f}" if isinstance(entry, (int, float)) else str(entry)
