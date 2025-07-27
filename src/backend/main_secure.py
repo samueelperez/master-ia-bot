@@ -326,7 +326,7 @@ async def create_suggestion(
     """Recibe y guarda una sugerencia de usuario."""
     try:
         # Obtener información del usuario desde el request
-        user_id = getattr(current_request.state, 'user_id', 0)
+        user_id = getattr(current_request.state, 'user_id', 1)  # Usar 1 como default para pruebas
         
         # Crear la sugerencia
         result = suggestions_service.add_suggestion(
@@ -340,7 +340,7 @@ async def create_suggestion(
             priority=request.priority.value if request.priority else "medium"
         )
         
-        if result["success"]:
+        if result["status"] == "success":
             return SuggestionResponse(
                 status="success",
                 message="Sugerencia creada exitosamente",
@@ -398,7 +398,7 @@ async def update_suggestion_status(
             admin_id=update_data.admin_id
         )
         
-        if result["success"]:
+        if result["status"] == "success":
             return {
                 "success": True,
                 "message": "Status actualizado exitosamente",
@@ -438,7 +438,7 @@ async def delete_suggestion(suggestion_id: int):
     try:
         result = suggestions_service.delete_suggestion(suggestion_id)
         
-        if result["success"]:
+        if result["status"] == "success":
             return {
                 "success": True,
                 "message": "Sugerencia eliminada exitosamente",
