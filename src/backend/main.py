@@ -319,27 +319,23 @@ async def list_strategies():
 @app.post("/sugerencias", response_model=SuggestionResponse)
 async def create_suggestion(
     request: SuggestionRequest,
-    current_request: Request  # <-- sin Depends()
+    current_request: Request
 ):
     """Recibe y guarda una sugerencia de usuario."""
     try:
         # Obtener información del usuario desde el request
-        user_id = getattr(current_request.state, 'user_id', 'anonymous')
-        user_info = {
-            "ip": current_request.client.host,
-            "user_agent": current_request.headers.get("user-agent", ""),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        # Agregar información adicional del usuario si se proporciona
-        if request.user_info:
-            user_info.update(request.user_info)
+        user_id = getattr(current_request.state, 'user_id', 0)
         
         # Crear la sugerencia
         result = suggestions_service.add_suggestion(
             user_id=user_id,
-            suggestion_text=request.suggestion,
-            user_info=user_info
+            suggestion_text=request.suggestion_text,
+            user_info={
+                "username": getattr(current_request.state, 'username', ''),
+                "first_name": getattr(current_request.state, 'first_name', '')
+            },
+            category=request.category.value if request.category else "general",
+            priority=request.priority.value if request.priority else "medium"
         )
         
         return SuggestionResponse(**result)
@@ -363,18 +359,29 @@ async def get_suggestions(
         # Convertir a modelos Pydantic
         suggestion_items = [SuggestionItem(**s) for s in suggestions]
         
+        # Obtener estadísticas
+        stats = suggestions_service.get_suggestion_stats()
+        
         return SuggestionListResponse(
+            status="success",
+            message="Sugerencias obtenidas exitosamente",
             suggestions=suggestion_items,
-            total=len(suggestion_items),
-            limit=limit
+            total_count=stats["total_suggestions"],
+            pending_count=stats["pending_suggestions"],
+            approved_count=stats["approved_suggestions"],
+            rejected_count=stats["rejected_suggestions"]
         )
         
     except Exception as e:
         logger.error(f"Error obteniendo sugerencias: {e}")
         return SuggestionListResponse(
+            status="error",
+            message="Error obteniendo sugerencias",
             suggestions=[],
-            total=0,
-            limit=limit
+            total_count=0,
+            pending_count=0,
+            approved_count=0,
+            rejected_count=0
         )
 
 @app.put("/sugerencias/{suggestion_id}")
@@ -386,8 +393,9 @@ async def update_suggestion_status(
     try:
         result = suggestions_service.update_suggestion_status(
             suggestion_id=suggestion_id,
-            status=update_data.status,
-            admin_notes=update_data.admin_notes
+            status=update_data.status.value,
+            admin_notes=update_data.admin_notes,
+            admin_id=getattr(update_data, 'admin_id', None)
         )
         
         return result
@@ -397,7 +405,52 @@ async def update_suggestion_status(
         return {
             "status": "error",
             "message": "Error interno del servidor"
-    }
+        }
+
+@app.get("/sugerencias/stats")
+async def get_suggestion_stats():
+    """Obtener estadísticas de sugerencias."""
+    try:
+        stats = suggestions_service.get_suggestion_stats()
+        return {
+            "status": "success",
+            "message": "Estadísticas obtenidas exitosamente",
+            "data": stats
+        }
+    except Exception as e:
+        logger.error(f"Error obteniendo estadísticas: {e}")
+        return {
+            "status": "error",
+            "message": "Error obteniendo estadísticas"
+        }
+
+@app.delete("/sugerencias/{suggestion_id}")
+async def delete_suggestion(suggestion_id: int):
+    """Eliminar una sugerencia (solo administradores)."""
+    try:
+        result = suggestions_service.delete_suggestion(suggestion_id=suggestion_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error eliminando sugerencia {suggestion_id}: {e}")
+        return {
+            "status": "error",
+            "message": "Error interno del servidor"
+        }
+
+@app.post("/sugerencias/cleanup")
+async def cleanup_suggestions(
+    days_to_keep: int = Query(365, ge=30, le=3650, description="Días a mantener")
+):
+    """Limpiar sugerencias antiguas (solo administradores)."""
+    try:
+        result = suggestions_service.cleanup_old_suggestions(days_to_keep=days_to_keep)
+        return result
+    except Exception as e:
+        logger.error(f"Error en limpieza de sugerencias: {e}")
+        return {
+            "status": "error",
+            "message": "Error interno del servidor"
+        }
 
 # =============================================================================
 # ENDPOINT DE INFORMACIÓN DE SEGURIDAD

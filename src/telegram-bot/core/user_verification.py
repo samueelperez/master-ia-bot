@@ -223,53 +223,9 @@ class UserVerificationManager:
             
             conn.commit()
     
-    def is_verification_required(self) -> bool:
-        """Verifica si la verificación de referidos está habilitada."""
-        return os.getenv("REQUIRE_REFERRAL_VERIFICATION", "false").lower() == "true"
+
     
-    def get_verification_stats(self) -> Dict[str, Any]:
-        """Obtiene estadísticas de verificación."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # Total de usuarios
-            cursor.execute("SELECT COUNT(*) FROM user_verification")
-            total_users = cursor.fetchone()[0]
-            
-            # Usuarios verificados
-            cursor.execute("SELECT COUNT(*) FROM user_verification WHERE is_verified = TRUE")
-            verified_users = cursor.fetchone()[0]
-            
-            # Usuarios pendientes
-            cursor.execute("SELECT COUNT(*) FROM user_verification WHERE is_verified = FALSE")
-            pending_users = cursor.fetchone()[0]
-            
-            # Intentos fallidos en las últimas 24h
-            yesterday_timestamp = (datetime.now() - timedelta(hours=24)).timestamp()
-            cursor.execute("""
-                SELECT COUNT(*) FROM verification_attempts 
-                WHERE attempt_date > ? AND success = FALSE
-            """, (yesterday_timestamp,))
-            failed_attempts_24h = cursor.fetchone()[0]
-            
-            # Exchanges más usados
-            cursor.execute("""
-                SELECT exchange_used, COUNT(*) as count 
-                FROM user_verification 
-                WHERE is_verified = TRUE AND exchange_used IS NOT NULL
-                GROUP BY exchange_used 
-                ORDER BY count DESC
-            """)
-            exchange_stats = dict(cursor.fetchall())
-            
-            return {
-                "total_users": total_users,
-                "verified_users": verified_users,
-                "pending_users": pending_users,
-                "verification_rate": verified_users / total_users * 100 if total_users > 0 else 0,
-                "failed_attempts_24h": failed_attempts_24h,
-                "exchange_stats": exchange_stats
-            }
+
     
     def cleanup_old_attempts(self, days: int = 30):
         """Limpia intentos antiguos de verificación."""

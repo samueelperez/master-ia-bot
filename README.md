@@ -49,7 +49,7 @@ Un bot de trading de criptomonedas impulsado por IA que combina análisis técni
 - Interfaz conversacional
 - Consultas de mercado en tiempo real
 - Alertas y notificaciones
-- Gestión de usuarios y referidos
+- Gestión de usuarios
 
 ### 📊 **Data Service** (`src/data-service/`)
 - Integración con APIs externas
@@ -166,7 +166,7 @@ Render detectará automáticamente la configuración y desplegará tu aplicació
 
 El proyecto incluye:
 - Autenticación JWT
-- Rate limiting
+
 - Validación de entrada
 - Cifrado de datos sensibles
 - Middleware de seguridad

@@ -61,7 +61,7 @@
 - **LLM Integration**: OpenAI GPT para análisis de mercado
 - **RAG System**: Retrieval Augmented Generation con contexto
 - **40+ Estrategias**: Sistema completo de indicadores técnicos
-- **API REST**: FastAPI con autenticación y rate limiting
+- **API REST**: FastAPI con autenticación
 - **Arquitectura Modular**: Separación clara de responsabilidades
 
 #### **Archivos Clave:**
@@ -83,7 +83,7 @@
 #### **Características Principales:**
 - **FastAPI Framework**: API moderna y rápida
 - **Análisis Técnico**: Cálculo de indicadores en tiempo real
-- **Sistema de Seguridad**: Autenticación JWT y rate limiting
+- **Sistema de Seguridad**: Autenticación JWT
 - **Base de Datos**: Integración con PostgreSQL
 - **Monitoreo**: Health checks y métricas del sistema
 
@@ -106,7 +106,7 @@
 
 #### **Características Principales:**
 - **Sistema de Menús**: Interfaz intuitiva con botones
-- **Verificación de Usuarios**: Sistema de referidos y autorización
+- **Verificación de Usuarios**: Sistema de autorización
 - **Alertas Inteligentes**: Notificaciones automáticas
 - **Análisis en Tiempo Real**: Consultas directas al AI Module
 - **Gestión de Memoria**: Contexto de conversación persistente
@@ -115,22 +115,22 @@
 - `core/telegram_bot_secure.py` (2,699 líneas) - Bot principal
 - `core/security_config.py` - Configuración de seguridad
 - `core/secure_memory_manager.py` - Gestión de memoria
-- `core/referral_verification.py` - Sistema de referidos
+
 - `services/alert_service.py` - Servicio de alertas
 
 #### **Funcionalidades:**
 - **Comandos**: `/start`, `/market`, `/analysis`, `/alerts`
 - **Menús Interactivos**: Selección de criptos, timeframes, estrategias
 - **Análisis Automático**: Detección de intención del usuario
-- **Verificación**: Sistema de referidos con base de datos SQLite
-- **Rate Limiting**: Protección contra spam
+- **Verificación**: Sistema de autorización con base de datos SQLite
+
 
 ### **4. 📊 Data Service (`src/data-service/`)**
 **Propósito**: Integración con APIs externas y datos de mercado
 
 #### **Características Principales:**
 - **APIs Externas**: News, Social Media, Economic Calendar
-- **Sistema de Seguridad**: Validación robusta y rate limiting
+- **Sistema de Seguridad**: Validación robusta
 - **Circuit Breaker**: Protección contra fallos de APIs externas
 - **Caché Inteligente**: Optimización de requests
 - **Monitoreo**: Health checks y métricas
@@ -178,8 +178,8 @@
 
 #### **1. Autenticación y Autorización**
 - **JWT Tokens**: Autenticación stateless
-- **Rate Limiting**: Protección contra abuso
-- **User Verification**: Sistema de referidos
+
+- **User Verification**: Sistema de autorización
 - **Admin Controls**: Gestión de usuarios autorizados
 
 #### **2. Validación de Entrada**
@@ -324,9 +324,9 @@ DATA_SERVICE_URL=http://localhost:9005
 - ✅ Dashboard web con gráficos
 - ✅ Integración con APIs externas
 - ✅ Sistema de alertas automáticas
-- ✅ Verificación de usuarios y referidos
+- ✅ Verificación de usuarios
 - ✅ Autenticación y autorización
-- ✅ Rate limiting y protección
+
 - ✅ Logging seguro y auditoría
 
 ---

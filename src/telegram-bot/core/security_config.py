@@ -8,11 +8,7 @@ import time
 class TelegramSecurityConfig:
     """Configuración de seguridad para el bot de Telegram."""
     
-    # Rate Limiting - Límites muy altos para desarrollo
-    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_MINUTE", "1000"))
-    RATE_LIMIT_PER_HOUR: int = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_HOUR", "10000"))
-    RATE_LIMIT_PER_DAY: int = int(os.getenv("TELEGRAM_RATE_LIMIT_PER_DAY", "100000"))
-    BURST_LIMIT: int = int(os.getenv("TELEGRAM_BURST_LIMIT", "50"))
+
     
     # Timeouts (en segundos)
     AI_MODULE_TIMEOUT: int = int(os.getenv("AI_MODULE_TIMEOUT", "60"))
@@ -87,113 +83,7 @@ class TelegramSecurityConfig:
         """Valida que el timeframe esté permitido."""
         return timeframe in cls.ALLOWED_TIMEFRAMES
 
-class TelegramRateLimiter:
-    """Rate limiter específico para Telegram Bot."""
-    
-    def __init__(self):
-        self.requests = {}  # {user_id: [timestamps]}
-        self.blocked_users = {}  # {user_id: block_end_time}
-        self.block_duration = 300  # 5 minutos
-    
-    def is_allowed(self, user_id: int) -> tuple[bool, dict]:
-        """
-        Verifica si un usuario puede hacer una request.
-        
-        Returns:
-            tuple: (is_allowed, rate_info)
-        """
-        current_time = time.time()
-        
-        # Verificar si el usuario está bloqueado
-        if user_id in self.blocked_users:
-            if current_time < self.blocked_users[user_id]:
-                remaining = int(self.blocked_users[user_id] - current_time)
-                return False, {
-                    "blocked": True,
-                    "remaining_seconds": remaining,
-                    "reason": "Rate limit exceeded"
-                }
-            else:
-                # Desbloquear usuario
-                del self.blocked_users[user_id]
-        
-        # Inicializar historial si no existe
-        if user_id not in self.requests:
-            self.requests[user_id] = []
-        
-        user_requests = self.requests[user_id]
-        
-        # Limpiar requests antiguas (más de 1 hora)
-        user_requests[:] = [req_time for req_time in user_requests 
-                          if current_time - req_time < 3600]
-        
-        # Contar requests por ventana de tiempo
-        minute_requests = sum(1 for req_time in user_requests 
-                            if current_time - req_time < 60)
-        hour_requests = len(user_requests)
-        
-        # Verificar límites
-        if minute_requests >= TelegramSecurityConfig.RATE_LIMIT_PER_MINUTE:
-            self._block_user(user_id, current_time)
-            return False, {
-                "blocked": True,
-                "remaining_seconds": self.block_duration,
-                "reason": "Too many requests per minute"
-            }
-        
-        if hour_requests >= TelegramSecurityConfig.RATE_LIMIT_PER_HOUR:
-            self._block_user(user_id, current_time)
-            return False, {
-                "blocked": True,
-                "remaining_seconds": self.block_duration,
-                "reason": "Too many requests per hour"
-            }
-        
-        # Verificar ráfagas (últimos 10 segundos)
-        burst_requests = sum(1 for req_time in user_requests 
-                           if current_time - req_time < 10)
-        
-        if burst_requests >= TelegramSecurityConfig.BURST_LIMIT:
-            return False, {
-                "blocked": False,
-                "reason": "Burst limit exceeded, try again in a few seconds"
-            }
-        
-        return True, {
-            "allowed": True,
-            "minute_requests": minute_requests,
-            "hour_requests": hour_requests,
-            "burst_requests": burst_requests
-        }
-    
-    def record_request(self, user_id: int):
-        """Registra una request exitosa."""
-        current_time = time.time()
-        if user_id not in self.requests:
-            self.requests[user_id] = []
-        self.requests[user_id].append(current_time)
-    
-    def _block_user(self, user_id: int, current_time: float):
-        """Bloquea temporalmente a un usuario."""
-        self.blocked_users[user_id] = current_time + self.block_duration
-    
-    def get_user_stats(self, user_id: int) -> dict:
-        """Obtiene estadísticas de rate limiting para un usuario."""
-        current_time = time.time()
-        
-        if user_id not in self.requests:
-            return {"minute_requests": 0, "hour_requests": 0, "burst_requests": 0}
-        
-        user_requests = self.requests[user_id]
-        
-        return {
-            "minute_requests": sum(1 for req_time in user_requests 
-                                 if current_time - req_time < 60),
-            "hour_requests": sum(1 for req_time in user_requests 
-                               if current_time - req_time < 3600),
-            "burst_requests": sum(1 for req_time in user_requests 
-                                if current_time - req_time < 10)
-        }
+
 
 class TelegramInputValidator:
     """Validador de entrada para el bot de Telegram."""

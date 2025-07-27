@@ -30,12 +30,7 @@ services:
         value: sQyrgWZ871tN82IjKVrx&0KP1p!y50#XN0#E!n$C0uEU%LZ*6Zhw@1cSGBp5xGHK
       - key: ENCRYPTION_KEY
         value: CCk9aV*F*ND2Ro7!zn6l2@b0D9A5oLYJ
-      - key: BACKEND_RATE_LIMIT_PER_MINUTE
-        value: 60
-      - key: BACKEND_RATE_LIMIT_PER_HOUR
-        value: 1000
-      - key: BACKEND_RATE_LIMIT_PER_DAY
-        value: 10000
+
       - key: BACKEND_HTTP_TIMEOUT
         value: 30
       - key: BACKEND_DB_TIMEOUT

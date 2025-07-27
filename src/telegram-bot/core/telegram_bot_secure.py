@@ -43,24 +43,22 @@ except ImportError:
 try:
     from .security_config import (
         TelegramSecurityConfig, 
-        TelegramRateLimiter, 
         TelegramInputValidator, 
         TelegramSecureLogger
     )
     from .secure_memory_manager import SecureMemoryManager
-    from .referral_verification import referral_verifier
-    from .user_verification import user_verification
+
+
 except ImportError:
     # Fallback para ejecución directa
     from security_config import (
         TelegramSecurityConfig, 
-        TelegramRateLimiter, 
         TelegramInputValidator, 
         TelegramSecureLogger
     )
     from secure_memory_manager import SecureMemoryManager
-    from referral_verification import referral_verifier
-    from user_verification import user_verification
+
+
 
 # Constantes para estados de conversación
 (
@@ -70,8 +68,8 @@ except ImportError:
     MAIN_MENU, SELECTING_CRYPTO_FOR_ANALYSIS, SELECTING_CRYPTO_FOR_SIGNAL,
     SELECTING_TIMEFRAME_FOR_ANALYSIS, SELECTING_TIMEFRAME_FOR_SIGNAL,
     CONFIGURING_CRYPTO_LIST, SELECTING_CRYPTO_FOR_STRATEGY, SELECTING_STRATEGY,
-    SELECTING_TIMEFRAME_FOR_STRATEGY
-) = range(17)
+    SELECTING_TIMEFRAME_FOR_STRATEGY, ENTERING_SUGGESTION
+) = range(18)
 
 # Constantes para callback data
 CRYPTO_PREFIX = "crypto:"
@@ -84,6 +82,7 @@ ANALYSIS_PREFIX = "analysis:"
 SIGNAL_PREFIX = "signal:"
 CONFIG_PREFIX = "config:"
 STRATEGY_PREFIX = "strategy:"
+SUGGESTION_PREFIX = "suggestion:"
 
 # Configuración de criptomonedas disponibles
 DEFAULT_CRYPTOS = {
@@ -136,7 +135,6 @@ if not TELEGRAM_TOKEN:
     raise RuntimeError("Falta TELEGRAM_BOT_TOKEN en variables de entorno")
 
 # Inicializar componentes de seguridad
-rate_limiter = TelegramRateLimiter()
 validator = TelegramInputValidator()
 secure_logger = TelegramSecureLogger()
 secure_memory = SecureMemoryManager(db_path=os.getenv("MEMORY_DB", "telegram_bot_memory_secure.db"))
@@ -146,7 +144,7 @@ secure_logger.safe_log(f"AI Module URL: {AI_MODULE_URL}", "info")
 
 # Decorador de autenticación con verificación de referidos
 def require_auth(func):
-    """Decorador para requerir autenticación de usuario y verificación de referidos."""
+    """Decorador para requerir autenticación de usuario."""
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         
@@ -154,7 +152,7 @@ def require_auth(func):
         if not TelegramSecurityConfig.is_user_authorized(user_id):
             secure_logger.safe_log("Usuario no autorizado intentó acceder", "warning", user_id)
             
-                        # Manejar tanto mensajes como callback queries
+            # Manejar tanto mensajes como callback queries
             if update.message:
                 await update.message.reply_text(
                     "❌ No tienes autorización para usar este bot.\n"
@@ -168,46 +166,10 @@ def require_auth(func):
                 )
             return
         
-        # Verificar si se requiere verificación de referidos
-        if user_verification.is_verification_required():
-            status = user_verification.get_verification_status(user_id)
-            
-            # Si no está verificado, redirigir al proceso de verificación
-            if not status.is_verified:
-                await handle_unverified_user(update, context, status)
-                return  # Solo retornar si no está verificado
-        
         return await func(update, context)
     return wrapper
 
-# Decorador de rate limiting
-def rate_limit(func):
-    """Decorador para aplicar rate limiting."""
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
-        
-        # Verificar rate limiting
-        allowed, rate_info = rate_limiter.is_allowed(user_id)
-        if not allowed:
-            if rate_info.get("blocked"):
-                remaining = rate_info.get("remaining_seconds", 0)
-                message = f"⏳ Has excedido el límite de requests.\nIntenta de nuevo en {remaining} segundos."
-            else:
-                message = "⚠️ Estás enviando mensajes muy rápido.\nPor favor, espera unos segundos antes de continuar."
-            
-            # Manejar tanto mensajes como callback queries
-            if update.message:
-                await update.message.reply_text(message)
-            elif update.callback_query:
-                await update.callback_query.answer()
-                await update.callback_query.edit_message_text(message)
-            return
-        
-        # Registrar request exitosa
-        rate_limiter.record_request(user_id)
-        return await func(update, context)
-    
-    return wrapper
+
 
 # Validador de entrada
 def validate_input(input_type: str = "message"):
@@ -241,7 +203,6 @@ def validate_input(input_type: str = "message"):
 
 # Handler /start con autenticación y rate limiting
 @require_auth
-@rate_limit
 @validate_input()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
@@ -852,6 +813,12 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Añadir mensaje del usuario al historial
     secure_memory.add_message(user_id, "user", text)
+    
+    # Verificar si el usuario está esperando una sugerencia
+    if context.user_data.get('waiting_for_suggestion', False):
+        # Procesar como sugerencia
+        await recibir_sugerencia(update, context)
+        return
 
     # --- Clasificación automática mejorada ---
     # Detectar directamente si el usuario quiere una señal
@@ -1249,7 +1216,6 @@ async def process_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 # Handler de alertas con validación
 @require_auth
-@rate_limit
 async def alertas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.effective_user.id
     
@@ -1300,43 +1266,16 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text("❌ No tienes permisos de administrador.")
         return
     
-    # Obtener estadísticas del sistema
-    stats = rate_limiter.get_user_stats(user_id)
-    
-    # Obtener estadísticas de verificación si está habilitada
-    verification_stats = ""
-    if user_verification.is_verification_required():
-        v_stats = user_verification.get_verification_stats()
-        verification_stats = (
-            f"\n**Estadísticas de Verificación:**\n"
-            f"• Total usuarios: {v_stats['total_users']}\n"
-            f"• Usuarios verificados: {v_stats['verified_users']}\n"
-            f"• Usuarios pendientes: {v_stats['pending_users']}\n"
-            f"• Tasa de verificación: {v_stats['verification_rate']:.1f}%\n"
-            f"• Intentos fallidos 24h: {v_stats['failed_attempts_24h']}\n"
-        )
-        
-        if v_stats['exchange_stats']:
-            verification_stats += f"• Exchanges usados: {', '.join(v_stats['exchange_stats'].keys())}\n"
-    else:
-        verification_stats = f"\n**Verificación de referidos:** Deshabilitada\n"
-    
     admin_text = (
         "⚙️ **Panel de Administración**\n\n"
-        f"**Estadísticas de rate limiting:**\n"
-        f"• Requests último minuto: {stats['minute_requests']}\n"
-        f"• Requests última hora: {stats['hour_requests']}\n"
-        f"• Requests últimos 10s: {stats['burst_requests']}\n"
-        f"{verification_stats}\n"
         f"**Configuración de seguridad:**\n"
-        f"• Rate limit/min: {TelegramSecurityConfig.RATE_LIMIT_PER_MINUTE}\n"
-        f"• Rate limit/hora: {TelegramSecurityConfig.RATE_LIMIT_PER_HOUR}\n"
-                 f"• Usuarios autorizados: {'Configurado' if os.getenv('AUTHORIZED_TELEGRAM_USERS') else 'Todos'}\n"
+        f"• Usuarios autorizados: {'Configurado' if os.getenv('AUTHORIZED_TELEGRAM_USERS') else 'Todos'}\n"
         f"• Timeout AI: {TelegramSecurityConfig.AI_MODULE_TIMEOUT}s"
     )
     
     keyboard = [
         [InlineKeyboardButton("📊 Ver Logs", callback_data=f"{ACTION_PREFIX}view_logs")],
+        [InlineKeyboardButton("💡 Gestionar Sugerencias", callback_data=f"{ACTION_PREFIX}manage_suggestions")],
         [InlineKeyboardButton("🧹 Limpiar DB", callback_data=f"{ACTION_PREFIX}cleanup_db")],
         [InlineKeyboardButton("🔙 Menú Principal", callback_data=f"{MENU_PREFIX}main")]
     ]
@@ -1346,7 +1285,6 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 # Handler de callbacks de botones
 @require_auth
-@rate_limit
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Maneja los callbacks de los botones del menú."""
     query = update.callback_query
@@ -1383,39 +1321,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         
 
             
-        # Verificar si el usuario está verificado para otros comandos
-        if user_verification.is_verification_required():
-            status = user_verification.get_verification_status(user_id)
-            if not status.is_verified:
-                try:
-                    await query.edit_message_text(
-                        "🔒 **Acceso Restringido**\n\n"
-                        "Necesitas verificar tu cuenta antes de usar el bot.\n"
-                        "Usa /start para iniciar el proceso de verificación.",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                except:
-                    pass  # Ignorar errores de edición
-                return
+
         
-        # Verificar rate limiting
-        allowed, rate_info = rate_limiter.is_allowed(user_id)
-        if not allowed:
-            try:
-                if rate_info.get("blocked"):
-                    remaining = rate_info.get("remaining_seconds", 0)
-                    await query.edit_message_text(
-                        f"⏳ Has excedido el límite de requests.\n"
-                        f"Intenta de nuevo en {remaining} segundos."
-                    )
-                else:
-                    await query.edit_message_text(
-                        "⚠️ Estás enviando mensajes muy rápido.\n"
-                        "Por favor, espera unos segundos antes de continuar."
-                    )
-            except:
-                pass  # Ignorar errores de edición
-            return
+
         
         # Manejo de verificación de referidos
         if callback_data.startswith(f"{MENU_PREFIX}analysis"):
@@ -1471,6 +1379,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 [InlineKeyboardButton("🎯 Señales", callback_data=f"{MENU_PREFIX}signal")],
                 [InlineKeyboardButton("🧠 Estrategias", callback_data=f"{MENU_PREFIX}strategy")],
                 [InlineKeyboardButton("🔔 Alertas", callback_data=f"{ACTION_PREFIX}alerts")],
+                [InlineKeyboardButton("💡 Sugerencias", callback_data=f"{SUGGESTION_PREFIX}menu")],
                 [InlineKeyboardButton("⚙️ Configurar", callback_data=f"{MENU_PREFIX}config")]
             ]
             
@@ -2214,6 +2123,407 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 reply_markup=reply_markup,
                 parse_mode=ParseMode.MARKDOWN
             )
+            
+        elif callback_data.startswith(f"{SUGGESTION_PREFIX}"):
+            # Manejo de sugerencias
+            if callback_data == f"{SUGGESTION_PREFIX}menu":
+                # Mostrar menú de sugerencias
+                await sugerencias_command(update, context)
+                
+            elif callback_data == f"{SUGGESTION_PREFIX}new":
+                # Iniciar proceso de nueva sugerencia
+                await query.edit_message_text(
+                    "💡 **Enviar Nueva Sugerencia**\n\n"
+                    "Por favor, escribe tu sugerencia en el siguiente mensaje.\n\n"
+                    "📝 **Ejemplos de sugerencias:**\n"
+                    "• \"Me gustaría que agreguen más indicadores técnicos\"\n"
+                    "• \"Hay un bug en el análisis de ETH\"\n"
+                    "• \"Sería útil tener alertas por email\"\n"
+                    "• \"Podrían agregar más criptomonedas\"\n\n"
+                    "⚠️ **Requisitos:**\n"
+                    "• Mínimo 10 caracteres\n"
+                    "• Máximo 2000 caracteres\n"
+                    "• Sé específico y descriptivo\n\n"
+                    "❌ Para cancelar, usa /start",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                context.user_data['waiting_for_suggestion'] = True
+                
+            elif callback_data == f"{SUGGESTION_PREFIX}my":
+                # Ver sugerencias del usuario
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.get(
+                            f"{backend_url}/sugerencias?limit=10&user_id={user_id}",
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            suggestions = data.get("suggestions", [])
+                            
+                            if suggestions:
+                                message = "📋 **Mis Sugerencias:**\n\n"
+                                for i, suggestion in enumerate(suggestions[:5], 1):
+                                    status_emoji = {
+                                        "pending": "⏳",
+                                        "approved": "✅",
+                                        "rejected": "❌",
+                                        "in_progress": "🔄"
+                                    }.get(suggestion["status"], "❓")
+                                    
+                                    message += (
+                                        f"{i}. {status_emoji} **ID:** `{suggestion['id']}`\n"
+                                        f"📅 **Fecha:** {suggestion['created_at'][:10]}\n"
+                                        f"📝 **Sugerencia:** {suggestion['suggestion_text'][:100]}...\n"
+                                        f"📊 **Estado:** {suggestion['status'].title()}\n\n"
+                                    )
+                                
+                                if len(suggestions) > 5:
+                                    message += f"📄 _Mostrando 5 de {len(suggestions)} sugerencias_\n\n"
+                                
+                                message += "💡 **Para ver más detalles, contacta a un administrador.**"
+                            else:
+                                message = "📋 **No tienes sugerencias enviadas.**\n\n💡 ¡Sé el primero en enviar una sugerencia!"
+                            
+                            keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data=f"{SUGGESTION_PREFIX}back")]]
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            
+                            await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudieron obtener tus sugerencias.\n"
+                                "Por favor, intenta más tarde.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error obteniendo sugerencias del usuario: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudieron obtener tus sugerencias.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif callback_data == f"{SUGGESTION_PREFIX}stats":
+                # Mostrar estadísticas (solo para admins)
+                if not TelegramSecurityConfig.is_admin_user(user_id):
+                    await query.edit_message_text(
+                        "❌ **Acceso denegado:** Solo los administradores pueden ver estadísticas.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    return
+                
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.get(
+                            f"{backend_url}/sugerencias/stats",
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            stats = data.get("data", {})
+                            
+                            message = "📊 **Estadísticas de Sugerencias**\n\n"
+                            message += f"📈 **Total:** {stats.get('total_suggestions', 0)}\n"
+                            message += f"⏳ **Pendientes:** {stats.get('pending_suggestions', 0)}\n"
+                            message += f"✅ **Aprobadas:** {stats.get('approved_suggestions', 0)}\n"
+                            message += f"❌ **Rechazadas:** {stats.get('rejected_suggestions', 0)}\n"
+                            message += f"🔄 **En Progreso:** {stats.get('in_progress_suggestions', 0)}\n"
+                            message += f"📅 **Últimos 7 días:** {stats.get('recent_suggestions', 0)}\n\n"
+                            
+                            # Top categorías
+                            top_categories = stats.get('top_categories', {})
+                            if top_categories:
+                                message += "🏆 **Categorías más populares:**\n"
+                                for category, count in list(top_categories.items())[:3]:
+                                    message += f"• {category.title()}: {count}\n"
+                                message += "\n"
+                            
+                            keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data=f"{SUGGESTION_PREFIX}back")]]
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            
+                            await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudieron obtener las estadísticas.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error obteniendo estadísticas: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudieron obtener las estadísticas.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif callback_data == f"{SUGGESTION_PREFIX}cancel":
+                # Cancelar proceso
+                await cancelar_sugerencia(update, context)
+                
+            elif callback_data == f"{SUGGESTION_PREFIX}back":
+                # Volver al menú de sugerencias
+                await sugerencias_command(update, context)
+                
+        elif callback_data.startswith(f"{ACTION_PREFIX}"):
+            # Acciones del sistema
+            action = callback_data.replace(f"{ACTION_PREFIX}", "")
+            
+            if action == "manage_suggestions":
+                # Gestionar sugerencias (solo para admins)
+                if not TelegramSecurityConfig.is_admin_user(user_id):
+                    await query.edit_message_text(
+                        "❌ **Acceso denegado:** Solo los administradores pueden gestionar sugerencias.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    return
+                
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.get(
+                            f"{backend_url}/sugerencias?limit=20&status=pending",
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            suggestions = data.get("suggestions", [])
+                            
+                            if suggestions:
+                                message = "💡 **Sugerencias Pendientes:**\n\n"
+                                keyboard = []
+                                
+                                for i, suggestion in enumerate(suggestions[:10], 1):
+                                    user_info = f"@{suggestion['username']}" if suggestion['username'] else f"ID: {suggestion['user_id']}"
+                                    message += (
+                                        f"{i}. **ID:** `{suggestion['id']}`\n"
+                                        f"👤 **Usuario:** {user_info}\n"
+                                        f"📅 **Fecha:** {suggestion['created_at'][:10]}\n"
+                                        f"📝 **Sugerencia:** {suggestion['suggestion_text'][:150]}...\n\n"
+                                    )
+                                    
+                                    keyboard.append([
+                                        InlineKeyboardButton(
+                                            f"✅ Aprobar {suggestion['id']}", 
+                                            callback_data=f"{ACTION_PREFIX}approve_{suggestion['id']}"
+                                        ),
+                                        InlineKeyboardButton(
+                                            f"❌ Rechazar {suggestion['id']}", 
+                                            callback_data=f"{ACTION_PREFIX}reject_{suggestion['id']}"
+                                        )
+                                    ])
+                                
+                                if len(suggestions) > 10:
+                                    message += f"📄 _Mostrando 10 de {len(suggestions)} sugerencias pendientes_\n\n"
+                                
+                                keyboard.append([InlineKeyboardButton("📊 Ver Todas", callback_data=f"{ACTION_PREFIX}view_all_suggestions")])
+                                keyboard.append([InlineKeyboardButton("🔙 Volver", callback_data=f"{ACTION_PREFIX}admin")])
+                                
+                                reply_markup = InlineKeyboardMarkup(keyboard)
+                                await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+                            else:
+                                message = "✅ **No hay sugerencias pendientes.**\n\n¡Excelente trabajo! Todas las sugerencias han sido procesadas."
+                                keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data=f"{ACTION_PREFIX}admin")]]
+                                reply_markup = InlineKeyboardMarkup(keyboard)
+                                await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudieron obtener las sugerencias.\n"
+                                "Por favor, intenta más tarde.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error gestionando sugerencias: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudieron obtener las sugerencias.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif action.startswith("approve_"):
+                # Aprobar sugerencia
+                suggestion_id = int(action.replace("approve_", ""))
+                
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.put(
+                            f"{backend_url}/sugerencias/{suggestion_id}",
+                            json={
+                                "status": "approved",
+                                "admin_notes": "Aprobada por administrador",
+                                "admin_id": user_id
+                            },
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            await query.edit_message_text(
+                                f"✅ **Sugerencia {suggestion_id} aprobada exitosamente**\n\n"
+                                "La sugerencia ha sido marcada como aprobada.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                            # Volver al menú de gestión después de 2 segundos
+                            import asyncio
+                            await asyncio.sleep(2)
+                            
+                            # Simular click en gestionar sugerencias
+                            mock_query = query
+                            mock_query.data = f"{ACTION_PREFIX}manage_suggestions"
+                            await button_callback(update, context)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudo aprobar la sugerencia.\n"
+                                "Por favor, intenta más tarde.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error aprobando sugerencia: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudo aprobar la sugerencia.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif action.startswith("reject_"):
+                # Rechazar sugerencia
+                suggestion_id = int(action.replace("reject_", ""))
+                
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.put(
+                            f"{backend_url}/sugerencias/{suggestion_id}",
+                            json={
+                                "status": "rejected",
+                                "admin_notes": "Rechazada por administrador",
+                                "admin_id": user_id
+                            },
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            await query.edit_message_text(
+                                f"❌ **Sugerencia {suggestion_id} rechazada**\n\n"
+                                "La sugerencia ha sido marcada como rechazada.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                            # Volver al menú de gestión después de 2 segundos
+                            import asyncio
+                            await asyncio.sleep(2)
+                            
+                            # Simular click en gestionar sugerencias
+                            mock_query = query
+                            mock_query.data = f"{ACTION_PREFIX}manage_suggestions"
+                            await button_callback(update, context)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudo rechazar la sugerencia.\n"
+                                "Por favor, intenta más tarde.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error rechazando sugerencia: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudo rechazar la sugerencia.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif action == "view_all_suggestions":
+                # Ver todas las sugerencias
+                try:
+                    backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+                    async with httpx.AsyncClient(timeout=30) as client:
+                        response = await client.get(
+                            f"{backend_url}/sugerencias?limit=50",
+                            headers={"Content-Type": "application/json"}
+                        )
+                        
+                        if response.status_code == 200:
+                            data = response.json()
+                            suggestions = data.get("suggestions", [])
+                            stats = data
+                            
+                            message = "📊 **Todas las Sugerencias:**\n\n"
+                            message += f"📈 **Total:** {stats.get('total_count', 0)}\n"
+                            message += f"⏳ **Pendientes:** {stats.get('pending_count', 0)}\n"
+                            message += f"✅ **Aprobadas:** {stats.get('approved_count', 0)}\n"
+                            message += f"❌ **Rechazadas:** {stats.get('rejected_count', 0)}\n\n"
+                            
+                            if suggestions:
+                                message += "📋 **Últimas sugerencias:**\n\n"
+                                for i, suggestion in enumerate(suggestions[:5], 1):
+                                    status_emoji = {
+                                        "pending": "⏳",
+                                        "approved": "✅",
+                                        "rejected": "❌",
+                                        "in_progress": "🔄"
+                                    }.get(suggestion["status"], "❓")
+                                    
+                                    user_info = f"@{suggestion['username']}" if suggestion['username'] else f"ID: {suggestion['user_id']}"
+                                    message += (
+                                        f"{i}. {status_emoji} **ID:** `{suggestion['id']}`\n"
+                                        f"👤 **Usuario:** {user_info}\n"
+                                        f"📅 **Fecha:** {suggestion['created_at'][:10]}\n"
+                                        f"📝 **Sugerencia:** {suggestion['suggestion_text'][:100]}...\n"
+                                        f"📊 **Estado:** {suggestion['status'].title()}\n\n"
+                                    )
+                                
+                                if len(suggestions) > 5:
+                                    message += f"📄 _Mostrando 5 de {len(suggestions)} sugerencias_\n\n"
+                            else:
+                                message += "📋 **No hay sugerencias en el sistema.**\n\n"
+                            
+                            keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data=f"{ACTION_PREFIX}manage_suggestions")]]
+                            reply_markup = InlineKeyboardMarkup(keyboard)
+                            await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+                        else:
+                            await query.edit_message_text(
+                                "❌ **Error:** No se pudieron obtener las sugerencias.\n"
+                                "Por favor, intenta más tarde.",
+                                parse_mode=ParseMode.MARKDOWN
+                            )
+                            
+                except Exception as e:
+                    secure_logger.safe_log(f"Error obteniendo todas las sugerencias: {str(e)}", "error", user_id)
+                    await query.edit_message_text(
+                        "❌ **Error:** No se pudieron obtener las sugerencias.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+            elif action == "admin":
+                # Volver al panel de administración
+                await admin_command(update, context)
+                
+            elif action == "view_logs":
+                # Ver logs (placeholder)
+                await query.edit_message_text(
+                    "📊 **Ver Logs**\n\n"
+                    "Esta funcionalidad estará disponible próximamente.\n\n"
+                    "Los logs se pueden consultar directamente en el servidor.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                
+            elif action == "cleanup_db":
+                # Limpiar base de datos (placeholder)
+                await query.edit_message_text(
+                    "🧹 **Limpiar Base de Datos**\n\n"
+                    "Esta funcionalidad estará disponible próximamente.\n\n"
+                    "La limpieza se puede realizar directamente en el servidor.",
+                    parse_mode=ParseMode.MARKDOWN
+                )
+                
         else:
             # Callback no reconocido
             await query.edit_message_text(
@@ -2247,281 +2557,16 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
         except Exception:
             pass  # Evitar loops de error
 
-async def handle_unverified_user(update: Update, context: ContextTypes.DEFAULT_TYPE, status):
-    """Maneja usuarios no verificados pidiéndoles directamente el UID."""
-    user_id = update.effective_user.id
-    
-    can_attempt, error_msg = user_verification.can_attempt_verification(user_id)
-    
-    if not can_attempt:
-        message = (
-            f"🔒 **Verificación Requerida**\n\n"
-            f"❌ {error_msg}\n\n"
-            f"Para más información, contacta al administrador."
-        )
-        
-        # Manejar tanto mensajes como callback queries
-        if update.message:
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-        elif update.callback_query:
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(message, parse_mode=ParseMode.MARKDOWN)
-        return
-    
-    # Obtener exchanges disponibles
-    available_exchanges = referral_verifier.get_enabled_exchanges()
-    
-    if not available_exchanges:
-        message = (
-            "🔒 **Verificación Requerida**\n\n"
-            "❌ No hay exchanges configurados para verificación.\n"
-            "Contacta al administrador."
-        )
-        
-        # Manejar tanto mensajes como callback queries
-        if update.message:
-            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
-        elif update.callback_query:
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(message, parse_mode=ParseMode.MARKDOWN)
-        return
-    
-    exchanges_text = ", ".join([ex.title() for ex in available_exchanges])
-    
-    verification_message = (
-        "🔒 **Verificación de Referido Requerida**\n\n"
-        "Para usar este bot, debes verificarte como referido en uno de estos exchanges:\n"
-        f"📊 **Exchanges soportados:** {exchanges_text}\n\n"
-        f"📝 **Intentos disponibles:** {user_verification.max_attempts - status.attempts}/{user_verification.max_attempts}\n\n"
-        "💡 **¿Cómo funciona?**\n"
-        "1. Debes ser referido de nuestro programa\n"
-        "2. Proporciona tu UID del exchange\n"
-        "3. Verificamos automáticamente tu estado\n\n"
-        "📝 **Formato:** Simplemente escribe tu UID (solo números)\n"
-        "📋 **Ejemplo:** `1234567890`\n\n"
-        "⚠️ **Importante:**\n"
-        "• Solo envía el UID, sin texto adicional\n"
-        "• Debe ser exactamente como aparece en tu exchange\n"
-        "• Tienes un límite de intentos por hora\n\n"
-        "💬 **Escribe tu UID ahora:**"
-    )
-    
-    # Marcar al usuario como esperando UID
-    USERS_AWAITING_VERIFICATION.add(user_id)
-    context.user_data['awaiting_uid'] = True
-    
-    # Manejar tanto mensajes como callback queries
-    if update.message:
-        await update.message.reply_text(
-            verification_message,
-            parse_mode=ParseMode.MARKDOWN
-        )
-    elif update.callback_query:
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            verification_message,
-            parse_mode=ParseMode.MARKDOWN
-        )
-
-# Variable global para rastrear usuarios en proceso de verificación
-USERS_AWAITING_VERIFICATION = set()
 
 
 
-async def process_uid_verification(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Procesa el UID para verificación."""
-    user_id = update.effective_user.id
-    uid = update.message.text.strip()
-    
-    # Validar formato UID
-    if not uid.isdigit() or len(uid) < 5 or len(uid) > 15:
-        await update.message.reply_text(
-            "❌ **UID Inválido**\n\n"
-            "El UID debe contener solo números y tener entre 5-15 dígitos.\n"
-            "📋 **Ejemplo correcto:** `1234567890`\n\n"
-            "Por favor, intenta de nuevo:",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-    
-    # Verificar si puede intentar
-    can_attempt, error_msg = user_verification.can_attempt_verification(user_id)
-    if not can_attempt:
-        await update.message.reply_text(f"❌ {error_msg}")
-        context.user_data.pop('awaiting_uid', None)
-        return
-    
-    # Mostrar mensaje de verificación en progreso
-    verification_msg = await update.message.reply_text(
-        "🔍 **Verificando...**\n\n"
-        f"📊 Buscando UID `{uid}` en exchanges configurados...\n"
-        "⏳ Esto puede tomar unos segundos.",
-        parse_mode=ParseMode.MARKDOWN
-    )
-    
-    try:
-        # Verificar en exchanges
-        is_verified, message, exchange_found = await referral_verifier.verify_referral(uid)
-        
-        if is_verified:
-            # Marcar como verificado
-            user_verification.record_verification_attempt(
-                user_id, uid, True, exchange_found
-            )
-            
-            await verification_msg.edit_text(
-                "✅ **Verificación Exitosa!**\n\n"
-                f"🎉 Tu UID `{uid}` ha sido verificado en **{exchange_found}**\n"
-                f"📅 Verificado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-                "🚀 Ya puedes usar todas las funciones del bot!\n"
-                "📱 Usa /start para comenzar.",
-                parse_mode=ParseMode.MARKDOWN
-            )
-            
-            secure_logger.safe_log(f"Usuario verificado exitosamente en {exchange_found} con UID {uid}", "info", user_id)
-            
-        else:
-            # Registrar intento fallido
-            user_verification.record_verification_attempt(
-                user_id, uid, False, error_msg=message
-            )
-            
-            status = user_verification.get_verification_status(user_id)
-            remaining_attempts = user_verification.max_attempts - status.attempts
-            
-            await verification_msg.edit_text(
-                "❌ **Verificación Fallida**\n\n"
-                f"📋 Mensaje: {message}\n\n"
-                f"🔄 **Intentos restantes:** {remaining_attempts}/{user_verification.max_attempts}\n\n"
-                "💡 **Posibles soluciones:**\n"
-                "• Verifica que el UID sea correcto\n"
-                "• Asegúrate de estar registrado como referido\n"
-                "• Contacta al administrador si persiste el error\n\n"
-                f"{'⏳ Puedes intentar de nuevo en 1 hora' if remaining_attempts == 0 else '📱 Puedes intentar con otro UID'}",
-                parse_mode=ParseMode.MARKDOWN
-            )
-            
-            secure_logger.safe_log(f"Verificación fallida para UID {uid}: {message}", "warning", user_id)
-    
-    except Exception as e:
-        # Error en verificación
-        user_verification.record_verification_attempt(
-            user_id, uid, False, error_msg=f"Error técnico: {str(e)[:100]}"
-        )
-        
-        await verification_msg.edit_text(
-            "⚠️ **Error en Verificación**\n\n"
-            "Ocurrió un error técnico durante la verificación.\n"
-            "Por favor, intenta de nuevo más tarde o contacta al administrador.\n\n"
-            f"🔍 ID de error para soporte: `{user_id}_{int(time.time())}`",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        
-        secure_logger.safe_log(f"Error en verificación: {str(e)}", "error", user_id)
-    
-    finally:
-        context.user_data.pop('awaiting_uid', None)
-        # Limpiar del estado global también
-        USERS_AWAITING_VERIFICATION.discard(user_id)
 
-@require_auth
-async def verify_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Comando para que administradores verifiquen usuarios manualmente."""
-    user_id = update.effective_user.id
-    
-    if not TelegramSecurityConfig.is_admin_user(user_id):
-        await update.message.reply_text("❌ No tienes permisos de administrador.")
-        return
-    
-    # Verificar que hay argumentos
-    if not context.args or len(context.args) < 1:
-        await update.message.reply_text(
-            "📝 **Uso del comando:**\n\n"
-            "`/verify_user <user_id> [exchange] [uid]`\n\n"
-            "**Ejemplos:**\n"
-            "• `/verify_user 123456789` - Verificar manualmente\n"
-            "• `/verify_user 123456789 bitget 1234567890` - Con detalles\n\n"
-            "Para obtener user_id, pide al usuario que envíe un mensaje y revisa los logs.",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-    
-    try:
-        target_user_id = int(context.args[0])
-        exchange = context.args[1] if len(context.args) > 1 else None
-        uid = context.args[2] if len(context.args) > 2 else None
-        
-        # Verificar si la verificación está habilitada
-        if not user_verification.is_verification_required():
-            await update.message.reply_text(
-                "⚠️ **Verificación Deshabilitada**\n\n"
-                "La verificación de referidos está deshabilitada en la configuración.\n"
-                "No es necesario verificar usuarios manualmente."
-            )
-            return
-        
-        # Obtener estado actual del usuario
-        status = user_verification.get_verification_status(target_user_id)
-        
-        if status.is_verified:
-            await update.message.reply_text(
-                f"✅ **Usuario Ya Verificado**\n\n"
-                f"👤 User ID: `{target_user_id}`\n"
-                f"📊 Exchange: {status.exchange_used or 'N/A'}\n"
-                f"🆔 UID: {status.uid_verified or 'N/A'}\n"
-                f"📅 Verificado: {status.verified_at.strftime('%d/%m/%Y %H:%M') if status.verified_at else 'N/A'}\n"
-                f"🔧 Método: {status.verification_method or 'N/A'}",
-                parse_mode=ParseMode.MARKDOWN
-            )
-            return
-        
-        # Verificar manualmente
-        user_verification.mark_verified(
-            target_user_id, 
-            method="manual_admin", 
-            exchange=exchange, 
-            uid=uid
-        )
-        
-        # Confirmar verificación exitosa
-        await update.message.reply_text(
-            f"✅ **Usuario Verificado Manualmente**\n\n"
-            f"👤 User ID: `{target_user_id}`\n"
-            f"📊 Exchange: {exchange or 'Manual'}\n"
-            f"🆔 UID: {uid or 'No especificado'}\n"
-            f"👨‍💼 Verificado por: Admin (ID: {user_id})\n"
-            f"📅 Fecha: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
-            f"🎉 El usuario ya puede usar todas las funciones del bot.",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        
-        secure_logger.safe_log(f"Admin {user_id} verificó manualmente al usuario {target_user_id}", "info", user_id)
-        
-    except ValueError:
-        await update.message.reply_text(
-            "❌ **Error de Formato**\n\n"
-            "El User ID debe ser un número entero.\n"
-            "Ejemplo: `/verify_user 123456789`",
-            parse_mode=ParseMode.MARKDOWN
-        )
-    except Exception as e:
-        await update.message.reply_text(
-            f"⚠️ **Error**\n\n"
-            f"No se pudo verificar el usuario: {str(e)}",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        secure_logger.safe_log(f"Error verificando usuario manualmente: {str(e)}", "error", user_id)
 
-async def process_uid_verification_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler específico para verificación de UID."""
-    user_id = update.effective_user.id
-    
-    # Verificar si el usuario está esperando ingresar UID (usando variable global y contexto)
-    if user_id in USERS_AWAITING_VERIFICATION or context.user_data.get('awaiting_uid'):
-        await process_uid_verification(update, context)
-        return  # No continuar al handler general
-    
-    # Si no está esperando UID, continuar al handler general
+
+
+
+
+    # Procesar mensaje normalmente
     await process_message(update, context)
 
 def main() -> None:
@@ -2535,17 +2580,24 @@ def main() -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("alertas", alertas_command))
     app.add_handler(CommandHandler("estrategias", estrategias_command))
+    app.add_handler(CommandHandler("sugerencias", sugerencias_command))
     app.add_handler(CommandHandler("admin", admin_command))
-    app.add_handler(CommandHandler("verify_user", verify_user_command))  # Solo para admins
+    
+    # ConversationHandler para sugerencias
+    suggestion_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("sugerencias", sugerencias_command)],
+        states={
+            ENTERING_SUGGESTION: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, recibir_sugerencia),
+                CallbackQueryHandler(cancelar_sugerencia, pattern=f"^{SUGGESTION_PREFIX}cancel$")
+            ]
+        },
+        fallbacks=[CommandHandler("start", start)]
+    )
+    app.add_handler(suggestion_conv_handler)
     
     # Handler de callbacks de botones
     app.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Handler específico para UID en verificación (debe ir antes que process_message)
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND, 
-        process_uid_verification_handler
-    ))
     
     # Error handler
     app.add_error_handler(error_handler)
@@ -2562,7 +2614,172 @@ def main() -> None:
     app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 @require_auth
-@rate_limit
+async def sugerencias_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Comando para enviar sugerencias al equipo de desarrollo."""
+    user_id = update.effective_user.id
+    user = update.effective_user
+    
+    # Crear teclado con opciones
+    keyboard = [
+        [
+            InlineKeyboardButton("💡 Enviar Sugerencia", callback_data=f"{SUGGESTION_PREFIX}new"),
+            InlineKeyboardButton("📋 Ver Mis Sugerencias", callback_data=f"{SUGGESTION_PREFIX}my")
+        ],
+        [
+            InlineKeyboardButton("📊 Estadísticas", callback_data=f"{SUGGESTION_PREFIX}stats"),
+            InlineKeyboardButton("❌ Cancelar", callback_data=f"{SUGGESTION_PREFIX}cancel")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    message = (
+        "💡 **Sistema de Sugerencias**\n\n"
+        "¡Tu opinión es importante para nosotros! Aquí puedes:\n\n"
+        "• **Enviar sugerencias** para mejorar el bot\n"
+        "• **Reportar bugs** que hayas encontrado\n"
+        "• **Proponer nuevas funcionalidades**\n"
+        "• **Dar feedback** sobre tu experiencia\n\n"
+        "🔧 **Tipos de sugerencias:**\n"
+        "• 🐛 Bug/Error\n"
+        "• ✨ Nueva funcionalidad\n"
+        "• 🔧 Mejora\n"
+        "• 💭 Feedback general\n\n"
+        "Selecciona una opción:"
+    )
+    
+    secure_logger.safe_log("Usuario accedió a sugerencias", "info", user_id)
+    
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
+    
+    return ENTERING_SUGGESTION
+
+async def recibir_sugerencia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Recibe y procesa la sugerencia del usuario."""
+    user_id = update.effective_user.id
+    user = update.effective_user
+    
+    if update.message and update.message.text:
+        suggestion_text = update.message.text.strip()
+        
+        # Validar longitud
+        if len(suggestion_text) < 10:
+            await update.message.reply_text(
+                "❌ **Error:** La sugerencia debe tener al menos 10 caracteres.\n\n"
+                "Por favor, proporciona más detalles sobre tu sugerencia.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return ENTERING_SUGGESTION
+        
+        if len(suggestion_text) > 2000:
+            await update.message.reply_text(
+                "❌ **Error:** La sugerencia es demasiado larga (máximo 2000 caracteres).\n\n"
+                "Por favor, acorta tu sugerencia.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return ENTERING_SUGGESTION
+        
+        try:
+            # Preparar datos para el backend
+            user_info = {
+                "username": user.username or "",
+                "first_name": user.first_name or ""
+            }
+            
+            # Llamar al backend
+            backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
+            payload = {
+                "suggestion_text": suggestion_text,
+                "category": "general",
+                "priority": "medium"
+            }
+            
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(
+                    f"{backend_url}/sugerencias",
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get("status") == "success":
+                        suggestion_id = data.get("suggestion_id")
+                        
+                        # Mensaje de confirmación
+                        confirm_message = (
+                            "✅ **¡Sugerencia enviada exitosamente!**\n\n"
+                            f"📝 **ID de sugerencia:** `{suggestion_id}`\n"
+                            f"💬 **Tu sugerencia:**\n"
+                            f"_{suggestion_text}_\n\n"
+                            "🙏 **Gracias por tu feedback!**\n"
+                            "Nuestro equipo revisará tu sugerencia y te notificaremos cuando sea procesada.\n\n"
+                            "🔍 **Para ver el estado de tus sugerencias:**\n"
+                            "Usa el comando `/sugerencias` y selecciona \"Ver Mis Sugerencias\""
+                        )
+                        
+                        await update.message.reply_text(
+                            confirm_message,
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                        
+                        secure_logger.safe_log(
+                            f"Sugerencia enviada exitosamente: ID={suggestion_id}",
+                            "info",
+                            user_id
+                        )
+                        
+                        return ConversationHandler.END
+                    else:
+                        error_msg = data.get("message", "Error desconocido")
+                        await update.message.reply_text(
+                            f"❌ **Error al enviar sugerencia:** {error_msg}",
+                            parse_mode=ParseMode.MARKDOWN
+                        )
+                else:
+                    await update.message.reply_text(
+                        "❌ **Error de conexión:** No se pudo conectar con el servidor.\n"
+                        "Por favor, intenta más tarde.",
+                        parse_mode=ParseMode.MARKDOWN
+                    )
+                    
+        except Exception as e:
+            secure_logger.safe_log(f"Error enviando sugerencia: {str(e)}", "error", user_id)
+            await update.message.reply_text(
+                "❌ **Error interno:** Ocurrió un error al procesar tu sugerencia.\n"
+                "Por favor, intenta más tarde.",
+                parse_mode=ParseMode.MARKDOWN
+            )
+        
+        return ConversationHandler.END
+    
+    # Si no es un mensaje de texto, pedir que envíe texto
+    await update.message.reply_text(
+        "❌ **Error:** Por favor, envía tu sugerencia como texto.\n\n"
+        "Ejemplo:\n"
+        "• \"Me gustaría que agreguen más indicadores técnicos\"\n"
+        "• \"Hay un bug en el análisis de ETH\"\n"
+        "• \"Sería útil tener alertas por email\"",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    return ENTERING_SUGGESTION
+
+async def cancelar_sugerencia(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Cancela el proceso de envío de sugerencia."""
+    user_id = update.effective_user.id
+    
+    await update.callback_query.answer("❌ Proceso cancelado")
+    await update.callback_query.edit_message_text(
+        "❌ **Proceso cancelado**\n\n"
+        "Si cambias de opinión, puedes usar `/sugerencias` en cualquier momento.",
+        parse_mode=ParseMode.MARKDOWN
+    )
+    
+    secure_logger.safe_log("Usuario canceló envío de sugerencia", "info", user_id)
+    
+    return ConversationHandler.END
+
+@require_auth
 async def estrategias_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Comando para acceder a estrategias avanzadas con menús interactivos."""
     user_id = update.effective_user.id
