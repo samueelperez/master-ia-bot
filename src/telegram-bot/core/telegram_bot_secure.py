@@ -152,7 +152,7 @@ def require_auth(func):
         if not TelegramSecurityConfig.is_user_authorized(user_id):
             secure_logger.safe_log("Usuario no autorizado intentó acceder", "warning", user_id)
             
-            # Manejar tanto mensajes como callback queries
+                        # Manejar tanto mensajes como callback queries
             if update.message:
                 await update.message.reply_text(
                     "❌ No tienes autorización para usar este bot.\n"
@@ -1269,7 +1269,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     admin_text = (
         "⚙️ **Panel de Administración**\n\n"
         f"**Configuración de seguridad:**\n"
-        f"• Usuarios autorizados: {'Configurado' if os.getenv('AUTHORIZED_TELEGRAM_USERS') else 'Todos'}\n"
+                 f"• Usuarios autorizados: {'Configurado' if os.getenv('AUTHORIZED_TELEGRAM_USERS') else 'Todos'}\n"
         f"• Timeout AI: {TelegramSecurityConfig.AI_MODULE_TIMEOUT}s"
     )
     
@@ -2132,7 +2132,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 
             elif callback_data == f"{SUGGESTION_PREFIX}new":
                 # Iniciar proceso de nueva sugerencia
-                await query.edit_message_text(
+            await query.edit_message_text(
                     "💡 **Enviar Nueva Sugerencia**\n\n"
                     "Por favor, escribe tu sugerencia en el siguiente mensaje.\n\n"
                     "📝 **Ejemplos de sugerencias:**\n"
@@ -2145,8 +2145,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     "• Máximo 2000 caracteres\n"
                     "• Sé específico y descriptivo\n\n"
                     "❌ Para cancelar, usa /start",
-                    parse_mode=ParseMode.MARKDOWN
-                )
+                parse_mode=ParseMode.MARKDOWN
+            )
                 context.user_data['waiting_for_suggestion'] = True
                 
             elif callback_data == f"{SUGGESTION_PREFIX}my":
@@ -2213,8 +2213,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         "❌ **Acceso denegado:** Solo los administradores pueden ver estadísticas.",
                         parse_mode=ParseMode.MARKDOWN
                     )
-                    return
-                
+        return
+    
                 try:
                     backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
                     async with httpx.AsyncClient(timeout=30) as client:
@@ -2250,16 +2250,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         else:
                             await query.edit_message_text(
                                 "❌ **Error:** No se pudieron obtener las estadísticas.",
-                                parse_mode=ParseMode.MARKDOWN
-                            )
+            parse_mode=ParseMode.MARKDOWN
+        )
                             
                 except Exception as e:
                     secure_logger.safe_log(f"Error obteniendo estadísticas: {str(e)}", "error", user_id)
                     await query.edit_message_text(
                         "❌ **Error:** No se pudieron obtener las estadísticas.",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                    
+            parse_mode=ParseMode.MARKDOWN
+        )
+
             elif callback_data == f"{SUGGESTION_PREFIX}cancel":
                 # Cancelar proceso
                 await cancelar_sugerencia(update, context)
@@ -2277,10 +2277,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 if not TelegramSecurityConfig.is_admin_user(user_id):
                     await query.edit_message_text(
                         "❌ **Acceso denegado:** Solo los administradores pueden gestionar sugerencias.",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                    return
-                
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    
                 try:
                     backend_url = os.getenv("BACKEND_URL", "http://localhost:9002")
                     async with httpx.AsyncClient(timeout=30) as client:
@@ -2325,7 +2325,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                                 
                                 reply_markup = InlineKeyboardMarkup(keyboard)
                                 await query.edit_message_text(message, reply_markup=reply_markup, parse_mode=ParseMode.MARKDOWN)
-                            else:
+        else:
                                 message = "✅ **No hay sugerencias pendientes.**\n\n¡Excelente trabajo! Todas las sugerencias han sido procesadas."
                                 keyboard = [[InlineKeyboardButton("🔙 Volver", callback_data=f"{ACTION_PREFIX}admin")]]
                                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2366,9 +2366,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                             await query.edit_message_text(
                                 f"✅ **Sugerencia {suggestion_id} aprobada exitosamente**\n\n"
                                 "La sugerencia ha sido marcada como aprobada.",
-                                parse_mode=ParseMode.MARKDOWN
-                            )
-                            
+                parse_mode=ParseMode.MARKDOWN
+            )
+            
                             # Volver al menú de gestión después de 2 segundos
                             import asyncio
                             await asyncio.sleep(2)
@@ -2389,9 +2389,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     await query.edit_message_text(
                         "❌ **Error:** No se pudo aprobar la sugerencia.\n"
                         "Por favor, intenta más tarde.",
-                        parse_mode=ParseMode.MARKDOWN
-                    )
-                    
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
             elif action.startswith("reject_"):
                 # Rechazar sugerencia
                 suggestion_id = int(action.replace("reject_", ""))
@@ -2428,8 +2428,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                             await query.edit_message_text(
                                 "❌ **Error:** No se pudo rechazar la sugerencia.\n"
                                 "Por favor, intenta más tarde.",
-                                parse_mode=ParseMode.MARKDOWN
-                            )
+            parse_mode=ParseMode.MARKDOWN
+        )
                             
                 except Exception as e:
                     secure_logger.safe_log(f"Error rechazando sugerencia: {str(e)}", "error", user_id)
@@ -2491,8 +2491,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                             await query.edit_message_text(
                                 "❌ **Error:** No se pudieron obtener las sugerencias.\n"
                                 "Por favor, intenta más tarde.",
-                                parse_mode=ParseMode.MARKDOWN
-                            )
+                parse_mode=ParseMode.MARKDOWN
+            )
                             
                 except Exception as e:
                     secure_logger.safe_log(f"Error obteniendo todas las sugerencias: {str(e)}", "error", user_id)
@@ -2512,9 +2512,9 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     "📊 **Ver Logs**\n\n"
                     "Esta funcionalidad estará disponible próximamente.\n\n"
                     "Los logs se pueden consultar directamente en el servidor.",
-                    parse_mode=ParseMode.MARKDOWN
-                )
-                
+            parse_mode=ParseMode.MARKDOWN
+        )
+        
             elif action == "cleanup_db":
                 # Limpiar base de datos (placeholder)
                 await query.edit_message_text(
@@ -2528,8 +2528,8 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             # Callback no reconocido
             await query.edit_message_text(
                 "❌ Opción no reconocida. Regresando al menú principal...",
-                parse_mode=ParseMode.MARKDOWN
-            )
+            parse_mode=ParseMode.MARKDOWN
+        )
             
     except Exception as e:
         secure_logger.safe_log(f"Error en callback: {str(e)}", "error", user_id)
@@ -2543,7 +2543,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     """Log errors causados por Updates."""
     user_id = None
     if isinstance(update, Update) and update.effective_user:
-        user_id = update.effective_user.id
+    user_id = update.effective_user.id
     
     secure_logger.safe_log(f"Error en bot: {str(context.error)}", "error", user_id)
     
