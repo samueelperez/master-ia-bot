@@ -342,7 +342,7 @@ async def create_suggestion(
         
         if result["success"]:
             return SuggestionResponse(
-                success=True,
+                status="success",
                 message="Sugerencia creada exitosamente",
                 suggestion_id=result["suggestion_id"]
             )
@@ -366,12 +366,16 @@ async def get_suggestions(
     """Obtener lista de sugerencias (para administradores)."""
     try:
         suggestions = suggestions_service.get_suggestions(limit=limit, status=status)
+        stats = suggestions_service.get_suggestion_stats()
         
         return SuggestionListResponse(
-            success=True,
+            status="success",
             message="Sugerencias obtenidas exitosamente",
             suggestions=suggestions,
-            total=len(suggestions)
+            total_count=len(suggestions),
+            pending_count=stats.get("pending_suggestions", 0),
+            approved_count=stats.get("approved_suggestions", 0),
+            rejected_count=stats.get("rejected_suggestions", 0)
         )
     except Exception as e:
         logger.error(f"Error obteniendo sugerencias: {e}")
