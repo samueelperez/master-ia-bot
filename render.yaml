@@ -49,35 +49,4 @@ services:
         value: true
     healthCheckPath: /ping
     autoDeploy: true
-    numInstances: 1
-
-  - type: web
-    name: crypto-ai-bot-ai-module
-    env: python
-    region: oregon
-    plan: free
-    buildCommand: |
-      echo "🔨 Iniciando build del AI Module en Render..."
-      pip install --upgrade pip
-      pip install -r requirements.txt
-      echo "✅ Dependencias Python instaladas"
-    startCommand: |
-      echo "🚀 Iniciando AI Module..."
-      cd src/ai-module
-      python main.py
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11
-      - key: AI_MODULE_PORT
-        value: 8001
-      - key: ENVIRONMENT
-        value: production
-      - key: OPENAI_API_KEY
-        value: sk-proj-85oA
-      - key: BACKEND_URL
-        value: https://master-ia-bot.onrender.com
-      - key: API_SECRET_KEY
-        value: cr1nW3IDA-CQlkm6XBIoIdZmqv9mLj6U_-1z0ttyOZ4
-    healthCheckPath: /health
-    autoDeploy: true
     numInstances: 1 

@@ -1,83 +1,80 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+"""
+Modelos Pydantic para el sistema de sugerencias
+"""
+
+from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, validator
 from datetime import datetime
-from enum import Enum
 
-class SuggestionCategory(str, Enum):
-    IMPROVEMENT = "improvement"
-    BUG = "bug"
-    FEATURE = "feature"
-    FEEDBACK = "feedback"
-    GENERAL = "general"
-
-class SuggestionStatus(str, Enum):
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-    IN_PROGRESS = "in_progress"
-
-class SuggestionPriority(str, Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    URGENT = "urgent"
 
 class SuggestionRequest(BaseModel):
-    suggestion_text: str = Field(..., min_length=1, max_length=2000, description="Texto de la sugerencia")
-    category: Optional[SuggestionCategory] = Field(default=SuggestionCategory.GENERAL, description="Categoría de la sugerencia")
-    priority: Optional[SuggestionPriority] = Field(default=SuggestionPriority.MEDIUM, description="Prioridad de la sugerencia")
+    """Modelo para solicitud de nueva sugerencia."""
+    suggestion: str
+    user_info: Optional[Dict[str, Any]] = None
     
-    @validator('suggestion_text')
-    def validate_suggestion_text(cls, v):
-        if not v.strip():
-            raise ValueError('El texto de la sugerencia no puede estar vacío')
+    @validator('suggestion')
+    def validate_suggestion(cls, v):
+        if not v or len(v.strip()) == 0:
+            raise ValueError('La sugerencia no puede estar vacía')
+        if len(v) > 1000:
+            raise ValueError('La sugerencia no puede exceder 1000 caracteres')
         return v.strip()
 
-class SuggestionResponse(BaseModel):
-    status: str = Field(..., description="Estado de la operación")
-    message: str = Field(..., description="Mensaje descriptivo")
-    suggestion_id: Optional[int] = Field(None, description="ID de la sugerencia creada")
 
 class SuggestionItem(BaseModel):
-    id: int = Field(..., description="ID único de la sugerencia")
-    user_id: int = Field(..., description="ID del usuario que creó la sugerencia")
-    username: Optional[str] = Field(None, description="Username del usuario")
-    first_name: Optional[str] = Field(None, description="Nombre del usuario")
-    suggestion_text: str = Field(..., description="Texto de la sugerencia")
-    category: SuggestionCategory = Field(..., description="Categoría de la sugerencia")
-    status: SuggestionStatus = Field(..., description="Estado actual de la sugerencia")
-    priority: SuggestionPriority = Field(..., description="Prioridad de la sugerencia")
-    created_at: datetime = Field(..., description="Fecha de creación")
-    updated_at: datetime = Field(..., description="Fecha de última actualización")
-    admin_notes: Optional[str] = Field(None, description="Notas del administrador")
-    admin_id: Optional[int] = Field(None, description="ID del administrador que procesó la sugerencia")
+    """Modelo para un item de sugerencia."""
+    id: int
+    user_id: str
+    suggestion_text: str
+    user_info: Optional[Dict[str, Any]] = None
+    status: str
+    admin_notes: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class SuggestionResponse(BaseModel):
+    """Modelo para respuesta de sugerencia."""
+    status: str
+    message: str
+    suggestion_id: Optional[int] = None
+
 
 class SuggestionListResponse(BaseModel):
-    status: str = Field(..., description="Estado de la operación")
-    message: str = Field(..., description="Mensaje descriptivo")
-    suggestions: List[SuggestionItem] = Field(..., description="Lista de sugerencias")
-    total_count: int = Field(..., description="Total de sugerencias")
-    pending_count: int = Field(..., description="Sugerencias pendientes")
-    approved_count: int = Field(..., description="Sugerencias aprobadas")
-    rejected_count: int = Field(..., description="Sugerencias rechazadas")
+    """Modelo para lista de sugerencias."""
+    suggestions: List[SuggestionItem]
+    total: int
+    limit: int
+
 
 class SuggestionStatusUpdate(BaseModel):
-    status: SuggestionStatus = Field(..., description="Nuevo estado de la sugerencia")
-    admin_notes: Optional[str] = Field(None, max_length=1000, description="Notas del administrador")
-    admin_id: Optional[int] = Field(None, description="ID del administrador")
+    """Modelo para actualización de status de sugerencia."""
+    status: str
+    admin_notes: Optional[str] = None
     
-    @validator('admin_notes')
-    def validate_admin_notes(cls, v):
-        if v is not None and not v.strip():
-            return None
-        return v.strip() if v else None
+    @validator('status')
+    def validate_status(cls, v):
+        valid_statuses = ['pending', 'approved', 'rejected', 'in_progress']
+        if v not in valid_statuses:
+            raise ValueError(f'Status debe ser uno de: {", ".join(valid_statuses)}')
+        return v
 
-class SuggestionStats(BaseModel):
-    total_suggestions: int = Field(..., description="Total de sugerencias")
-    pending_suggestions: int = Field(..., description="Sugerencias pendientes")
-    approved_suggestions: int = Field(..., description="Sugerencias aprobadas")
-    rejected_suggestions: int = Field(..., description="Sugerencias rechazadas")
-    in_progress_suggestions: int = Field(..., description="Sugerencias en progreso")
-    recent_suggestions: int = Field(..., description="Sugerencias de los últimos 7 días")
-    top_categories: dict = Field(..., description="Categorías más populares")
-    top_priorities: dict = Field(..., description="Prioridades más comunes") 
+
+class SuggestionFilter(BaseModel):
+    """Modelo para filtros de sugerencias."""
+    status: Optional[str] = None
+    user_id: Optional[str] = None
+    limit: int = 50
+    offset: int = 0
+    
+    @validator('limit')
+    def validate_limit(cls, v):
+        if v < 1 or v > 100:
+            raise ValueError('Limit debe estar entre 1 y 100')
+        return v
+    
+    @validator('offset')
+    def validate_offset(cls, v):
+        if v < 0:
+            raise ValueError('Offset no puede ser negativo')
+        return v 

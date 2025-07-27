@@ -319,23 +319,27 @@ async def list_strategies():
 @app.post("/sugerencias", response_model=SuggestionResponse)
 async def create_suggestion(
     request: SuggestionRequest,
-    current_request: Request
+    current_request: Request  # <-- sin Depends()
 ):
     """Recibe y guarda una sugerencia de usuario."""
     try:
         # Obtener información del usuario desde el request
-        user_id = getattr(current_request.state, 'user_id', 0)
+        user_id = getattr(current_request.state, 'user_id', 'anonymous')
+        user_info = {
+            "ip": current_request.client.host,
+            "user_agent": current_request.headers.get("user-agent", ""),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Agregar información adicional del usuario si se proporciona
+        if request.user_info:
+            user_info.update(request.user_info)
         
         # Crear la sugerencia
         result = suggestions_service.add_suggestion(
             user_id=user_id,
-            suggestion_text=request.suggestion_text,
-            user_info={
-                "username": getattr(current_request.state, 'username', ''),
-                "first_name": getattr(current_request.state, 'first_name', '')
-            },
-            category=request.category.value if request.category else "general",
-            priority=request.priority.value if request.priority else "medium"
+            suggestion_text=request.suggestion,
+            user_info=user_info
         )
         
         return SuggestionResponse(**result)
@@ -346,6 +350,59 @@ async def create_suggestion(
             status="error",
             message="Error interno del servidor"
         )
+
+@app.post("/test-sugerencias")
+async def test_create_suggestion(request: Request):
+    """Endpoint de prueba para sugerencias sin validación compleja."""
+    try:
+        body = await request.json()
+        suggestion_text = body.get("suggestion", "test")
+        
+        logger.info(f"Recibida sugerencia de prueba: {suggestion_text}")
+        
+        # Crear la sugerencia directamente
+        result = suggestions_service.add_suggestion(
+            user_id="test_user",
+            suggestion_text=suggestion_text,
+            user_info={"test": True}
+        )
+        
+        logger.info(f"Resultado: {result}")
+        return result
+        
+    except Exception as e:
+        import traceback
+        logger.error(f"Error en test endpoint: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/simple-test")
+async def simple_test():
+    """Endpoint simple sin middleware para probar."""
+    return {"status": "success", "message": "Endpoint simple funciona"}
+
+@app.post("/sugerencias-simple")
+async def create_suggestion_simple(request: Request):
+    """Endpoint simple para crear sugerencias sin middleware problemático."""
+    try:
+        body = await request.json()
+        suggestion_text = body.get("suggestion", "")
+        
+        if not suggestion_text:
+            return {"status": "error", "message": "La sugerencia no puede estar vacía"}
+        
+        # Crear la sugerencia
+        result = suggestions_service.add_suggestion(
+            user_id="anonymous",
+            suggestion_text=suggestion_text,
+            user_info={"ip": request.client.host, "user_agent": request.headers.get("user-agent", "")}
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error creando sugerencia simple: {e}")
+        return {"status": "error", "message": "Error interno del servidor"}
 
 @app.get("/sugerencias", response_model=SuggestionListResponse)
 async def get_suggestions(
@@ -359,29 +416,18 @@ async def get_suggestions(
         # Convertir a modelos Pydantic
         suggestion_items = [SuggestionItem(**s) for s in suggestions]
         
-        # Obtener estadísticas
-        stats = suggestions_service.get_suggestion_stats()
-        
         return SuggestionListResponse(
-            status="success",
-            message="Sugerencias obtenidas exitosamente",
             suggestions=suggestion_items,
-            total_count=stats["total_suggestions"],
-            pending_count=stats["pending_suggestions"],
-            approved_count=stats["approved_suggestions"],
-            rejected_count=stats["rejected_suggestions"]
+            total=len(suggestion_items),
+            limit=limit
         )
         
     except Exception as e:
         logger.error(f"Error obteniendo sugerencias: {e}")
         return SuggestionListResponse(
-            status="error",
-            message="Error obteniendo sugerencias",
             suggestions=[],
-            total_count=0,
-            pending_count=0,
-            approved_count=0,
-            rejected_count=0
+            total=0,
+            limit=limit
         )
 
 @app.put("/sugerencias/{suggestion_id}")
@@ -393,9 +439,8 @@ async def update_suggestion_status(
     try:
         result = suggestions_service.update_suggestion_status(
             suggestion_id=suggestion_id,
-            status=update_data.status.value,
-            admin_notes=update_data.admin_notes,
-            admin_id=getattr(update_data, 'admin_id', None)
+            status=update_data.status,
+            admin_notes=update_data.admin_notes
         )
         
         return result
@@ -407,50 +452,51 @@ async def update_suggestion_status(
             "message": "Error interno del servidor"
         }
 
-@app.get("/sugerencias/stats")
-async def get_suggestion_stats():
-    """Obtener estadísticas de sugerencias."""
+@app.get("/sugerencias/{suggestion_id}")
+async def get_suggestion_by_id(suggestion_id: int):
+    """Obtener una sugerencia específica por ID."""
     try:
-        stats = suggestions_service.get_suggestion_stats()
-        return {
-            "status": "success",
-            "message": "Estadísticas obtenidas exitosamente",
-            "data": stats
-        }
+        suggestion = suggestions_service.get_suggestion_by_id(suggestion_id)
+        
+        if not suggestion:
+            raise HTTPException(
+                status_code=404,
+                detail="Sugerencia no encontrada"
+            )
+        
+        return SuggestionItem(**suggestion)
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error obteniendo estadísticas: {e}")
-        return {
-            "status": "error",
-            "message": "Error obteniendo estadísticas"
-        }
+        logger.error(f"Error obteniendo sugerencia {suggestion_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
 
 @app.delete("/sugerencias/{suggestion_id}")
 async def delete_suggestion(suggestion_id: int):
-    """Eliminar una sugerencia (solo administradores)."""
+    """Eliminar una sugerencia (para administradores)."""
     try:
-        result = suggestions_service.delete_suggestion(suggestion_id=suggestion_id)
+        result = suggestions_service.delete_suggestion(suggestion_id)
+        
+        if result["status"] == "error":
+            raise HTTPException(
+                status_code=404,
+                detail=result["message"]
+            )
+        
         return result
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error eliminando sugerencia {suggestion_id}: {e}")
-        return {
-            "status": "error",
-            "message": "Error interno del servidor"
-        }
-
-@app.post("/sugerencias/cleanup")
-async def cleanup_suggestions(
-    days_to_keep: int = Query(365, ge=30, le=3650, description="Días a mantener")
-):
-    """Limpiar sugerencias antiguas (solo administradores)."""
-    try:
-        result = suggestions_service.cleanup_old_suggestions(days_to_keep=days_to_keep)
-        return result
-    except Exception as e:
-        logger.error(f"Error en limpieza de sugerencias: {e}")
-        return {
-            "status": "error",
-            "message": "Error interno del servidor"
-        }
+        raise HTTPException(
+            status_code=500,
+            detail="Error interno del servidor"
+        )
 
 # =============================================================================
 # ENDPOINT DE INFORMACIÓN DE SEGURIDAD

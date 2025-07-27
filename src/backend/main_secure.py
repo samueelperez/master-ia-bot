@@ -7,25 +7,13 @@ import os
 import sys
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Depends, Request, Query
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import json
 import httpx
 import asyncio
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-
-# Imports para sugerencias
-from services.suggestions import suggestions_service
-from models.suggestion_models import (
-    SuggestionRequest, 
-    SuggestionResponse, 
-    SuggestionItem, 
-    SuggestionListResponse, 
-    SuggestionStatusUpdate
-)
 
 # Comentado temporalmente para compatibilidad con Python 3.13
 # from sqlalchemy.orm import Session
@@ -217,8 +205,7 @@ async def root():
         "endpoints": {
             "health": "/ping, /healthcheck, /health/simple, /health/detailed",
             "prices": "/api/price/{symbol}",
-            "status": "/api/status",
-            "suggestions": "/sugerencias, /sugerencias/stats, /sugerencias/cleanup"
+            "status": "/api/status"
         }
     }
 
@@ -313,167 +300,6 @@ async def get_strategies():
             "scalping", "swing_trading", "position_trading"
         ]
     }
-
-# =============================================================================
-# ENDPOINTS DE SUGERENCIAS
-# =============================================================================
-
-@app.post("/sugerencias", response_model=SuggestionResponse)
-async def create_suggestion(
-    request: SuggestionRequest,
-    current_request: Request
-):
-    """Recibe y guarda una sugerencia de usuario."""
-    try:
-        # Obtener información del usuario desde el request
-        user_id = getattr(current_request.state, 'user_id', 1)  # Usar 1 como default para pruebas
-        
-        # Crear la sugerencia
-        result = suggestions_service.add_suggestion(
-            user_id=user_id,
-            suggestion_text=request.suggestion_text,
-            user_info={
-                "username": getattr(current_request.state, 'username', ''),
-                "first_name": getattr(current_request.state, 'first_name', '')
-            },
-            category=request.category.value if request.category else "general",
-            priority=request.priority.value if request.priority else "medium"
-        )
-        
-        if result["status"] == "success":
-            return SuggestionResponse(
-                status="success",
-                message="Sugerencia creada exitosamente",
-                suggestion_id=result["suggestion_id"]
-            )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=result["message"]
-            )
-    except Exception as e:
-        logger.error(f"Error creando sugerencia: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno creando sugerencia"
-        )
-
-@app.get("/sugerencias", response_model=SuggestionListResponse)
-async def get_suggestions(
-    limit: int = Query(50, ge=1, le=100, description="Número máximo de sugerencias"),
-    status: Optional[str] = Query(None, description="Filtrar por status (pending, approved, rejected)")
-):
-    """Obtener lista de sugerencias (para administradores)."""
-    try:
-        suggestions = suggestions_service.get_suggestions(limit=limit, status=status)
-        stats = suggestions_service.get_suggestion_stats()
-        
-        return SuggestionListResponse(
-            status="success",
-            message="Sugerencias obtenidas exitosamente",
-            suggestions=suggestions,
-            total_count=len(suggestions),
-            pending_count=stats.get("pending_suggestions", 0),
-            approved_count=stats.get("approved_suggestions", 0),
-            rejected_count=stats.get("rejected_suggestions", 0)
-        )
-    except Exception as e:
-        logger.error(f"Error obteniendo sugerencias: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno obteniendo sugerencias"
-        )
-
-@app.put("/sugerencias/{suggestion_id}")
-async def update_suggestion_status(
-    suggestion_id: int,
-    update_data: SuggestionStatusUpdate
-):
-    """Actualizar status de una sugerencia (solo administradores)."""
-    try:
-        result = suggestions_service.update_suggestion_status(
-            suggestion_id=suggestion_id,
-            status=update_data.status.value if update_data.status else "pending",
-            admin_notes=update_data.admin_notes,
-            admin_id=update_data.admin_id
-        )
-        
-        if result["status"] == "success":
-            return {
-                "success": True,
-                "message": "Status actualizado exitosamente",
-                "suggestion_id": suggestion_id
-            }
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=result["message"]
-            )
-    except Exception as e:
-        logger.error(f"Error actualizando sugerencia {suggestion_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno actualizando sugerencia"
-        )
-
-@app.get("/sugerencias/stats")
-async def get_suggestion_stats():
-    """Obtener estadísticas de sugerencias."""
-    try:
-        stats = suggestions_service.get_suggestion_stats()
-        return {
-            "success": True,
-            "stats": stats
-        }
-    except Exception as e:
-        logger.error(f"Error obteniendo estadísticas: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno obteniendo estadísticas"
-        )
-
-@app.delete("/sugerencias/{suggestion_id}")
-async def delete_suggestion(suggestion_id: int):
-    """Eliminar una sugerencia (solo administradores)."""
-    try:
-        result = suggestions_service.delete_suggestion(suggestion_id)
-        
-        if result["status"] == "success":
-            return {
-                "success": True,
-                "message": "Sugerencia eliminada exitosamente",
-                "suggestion_id": suggestion_id
-            }
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=result["message"]
-            )
-    except Exception as e:
-        logger.error(f"Error eliminando sugerencia {suggestion_id}: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno eliminando sugerencia"
-        )
-
-@app.post("/sugerencias/cleanup")
-async def cleanup_suggestions(
-    days_to_keep: int = Query(365, ge=30, le=3650, description="Días a mantener")
-):
-    """Limpiar sugerencias antiguas (solo administradores)."""
-    try:
-        result = suggestions_service.cleanup_old_suggestions(days_to_keep)
-        return {
-            "success": True,
-            "message": f"Limpieza completada. {result['deleted_count']} sugerencias eliminadas",
-            "deleted_count": result["deleted_count"]
-        }
-    except Exception as e:
-        logger.error(f"Error en limpieza de sugerencias: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Error interno en limpieza de sugerencias"
-        )
 
 if __name__ == "__main__":
     import uvicorn
