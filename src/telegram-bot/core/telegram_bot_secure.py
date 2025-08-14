@@ -132,7 +132,7 @@ AVAILABLE_STRATEGIES = {
 
 # Variables de entorno
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
-AI_MODULE_URL = os.getenv("AI_MODULE_URL", "http://localhost:8001")  # Puerto del AI Module actual
+AI_MODULE_URL = os.getenv("AI_MODULE_URL", "https://master-ia-bot.onrender.com")  # URL del backend en Render
 
 if not TELEGRAM_TOKEN:
     raise RuntimeError("Falta TELEGRAM_BOT_TOKEN en variables de entorno")
