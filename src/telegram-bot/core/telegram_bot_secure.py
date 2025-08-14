@@ -286,9 +286,9 @@ async def secure_ai_call(endpoint: str, payload: Dict[str, Any], user_id: int) -
             async with httpx.AsyncClient(
                 timeout=TelegramSecurityConfig.AI_MODULE_TIMEOUT
             ) as client:
-                # Health check
+                # Health check usando endpoint disponible
                 health_resp = await client.get(
-                    f"{AI_MODULE_URL}/health", 
+                    f"{AI_MODULE_URL}/ping", 
                     timeout=TelegramSecurityConfig.HEALTH_CHECK_TIMEOUT
                 )
                 health_resp.raise_for_status()
