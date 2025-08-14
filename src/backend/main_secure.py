@@ -57,16 +57,21 @@ rate_limiter = RateLimiter()
 async def get_price_from_binance(symbol: str) -> float:
     """Obtener precio desde Binance."""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             url = f"https://api.binance.com/api/v3/ticker/price"
             params = {"symbol": f"{symbol.upper()}USDT"}
             response = await client.get(url, params=params)
             response.raise_for_status()
             data = response.json()
-            return float(data.get("price", 0))
+            price = float(data.get("price", 0))
+            if price > 0:
+                logger.info(f"Precio obtenido de Binance para {symbol}: ${price:,.2f}")
+                return price
+            else:
+                raise Exception("Precio inválido recibido de Binance")
     except Exception as e:
         logger.error(f"Error obteniendo precio de Binance para {symbol}: {e}")
-        return 0.0
+        raise Exception(f"Binance no disponible para {symbol}: {str(e)}")
 
 async def get_price_from_coingecko(symbol: str) -> float:
     """Obtener precio desde CoinGecko."""
@@ -81,7 +86,7 @@ async def get_price_from_coingecko(symbol: str) -> float:
         
         coin_id = symbol_mapping.get(symbol.upper(), symbol.lower())
         
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             url = "https://api.coingecko.com/api/v3/simple/price"
             params = {
                 "ids": coin_id,
@@ -92,41 +97,42 @@ async def get_price_from_coingecko(symbol: str) -> float:
             data = response.json()
             
             if coin_id in data:
-                return float(data[coin_id].get("usd", 0))
-            return 0.0
+                price = float(data[coin_id].get("usd", 0))
+                if price > 0:
+                    logger.info(f"Precio obtenido de CoinGecko para {symbol}: ${price:,.2f}")
+                    return price
+                else:
+                    raise Exception("Precio inválido recibido de CoinGecko")
+            else:
+                raise Exception(f"ID de moneda {coin_id} no encontrado en CoinGecko")
     except Exception as e:
         logger.error(f"Error obteniendo precio de CoinGecko para {symbol}: {e}")
-        return 0.0
+        raise Exception(f"CoinGecko no disponible para {symbol}: {str(e)}")
 
 async def get_current_price(symbol: str) -> float:
-    """Obtener precio actual con fallback a múltiples fuentes."""
+    """Obtener precio actual solo de fuentes reales."""
+    logger.info(f"🔍 Obteniendo precio real para {symbol}...")
+    
     # Intentar Binance primero
-    price = await get_price_from_binance(symbol)
-    if price > 0:
+    try:
+        price = await get_price_from_binance(symbol)
+        logger.info(f"✅ Precio obtenido exitosamente de Binance para {symbol}")
         return price
-    
-    # Fallback a CoinGecko
-    price = await get_price_from_coingecko(symbol)
-    if price > 0:
-        return price
-    
-    # Fallback a precios hardcodeados
-    fallback_prices = {
-        "BTC": 65000.0,
-        "ETH": 3400.0,
-        "SOL": 120.0,
-        "ADA": 0.5,
-        "DOT": 7.0,
-        "MATIC": 0.8,
-        "AVAX": 35.0,
-        "LINK": 15.0,
-        "UNI": 8.0,
-        "AAVE": 250.0,
-        "ATOM": 8.0,
-        "ALGO": 0.2
-    }
-    
-    return fallback_prices.get(symbol.upper(), 0.0)
+    except Exception as binance_error:
+        logger.warning(f"⚠️ Binance falló para {symbol}: {binance_error}")
+        
+        # Si Binance falla, intentar CoinGecko
+        try:
+            price = await get_price_from_coingecko(symbol)
+            logger.info(f"✅ Precio obtenido exitosamente de CoinGecko para {symbol}")
+            return price
+        except Exception as coingecko_error:
+            logger.error(f"❌ CoinGecko también falló para {symbol}: {coingecko_error}")
+            
+            # Si ambas fuentes fallan, lanzar error
+            error_msg = f"No se pudo obtener precio real para {symbol}. Binance: {binance_error}, CoinGecko: {coingecko_error}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -190,8 +196,52 @@ async def health_detailed():
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "development"),
         "database": "disabled",  # Temporal
-        "price_service": "enabled"  # Nuevo
+        "price_service": "enabled",  # Nuevo
+        "apis": {
+            "binance": "enabled",
+            "coingecko": "enabled"
+        }
     }
+
+@app.get("/health/price-apis")
+async def health_price_apis():
+    """Health check específico para APIs de precios."""
+    try:
+        # Probar Binance
+        btc_price_binance = await get_price_from_binance("BTC")
+        binance_status = "healthy" if btc_price_binance > 0 else "error"
+        
+        # Probar CoinGecko
+        btc_price_coingecko = await get_price_from_coingecko("BTC")
+        coingecko_status = "healthy" if btc_price_coingecko > 0 else "error"
+        
+        return {
+            "status": "healthy" if binance_status == "healthy" or coingecko_status == "healthy" else "degraded",
+            "timestamp": time.time(),
+            "apis": {
+                "binance": {
+                    "status": binance_status,
+                    "btc_price": btc_price_binance,
+                    "last_check": time.time()
+                },
+                "coingecko": {
+                    "status": coingecko_status,
+                    "btc_price": btc_price_coingecko,
+                    "last_check": time.time()
+                }
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error en health check de APIs de precios: {e}")
+        return {
+            "status": "error",
+            "timestamp": time.time(),
+            "error": str(e),
+            "apis": {
+                "binance": {"status": "error", "error": "No disponible"},
+                "coingecko": {"status": "error", "error": "No disponible"}
+            }
+        }
 
 # Endpoints principales
 @app.get("/")
@@ -203,7 +253,7 @@ async def root():
         "status": "running",
         "docs": "/docs",
         "endpoints": {
-            "health": "/ping, /healthcheck, /health/simple, /health/detailed",
+            "health": "/ping, /healthcheck, /health/simple, /health/detailed, /health/price-apis",
             "prices": "/api/price/{symbol}",
             "status": "/api/status",
             "ai": "/advanced-strategy"
