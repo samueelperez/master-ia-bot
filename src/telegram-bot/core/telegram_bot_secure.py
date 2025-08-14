@@ -2380,6 +2380,9 @@ def main() -> None:
     # Handler de callbacks de botones
     app.add_handler(CallbackQueryHandler(button_callback))
     
+    # Handler para mensajes de texto generales (análisis, señales, etc.)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_message))
+    
     # Error handler
     app.add_error_handler(error_handler)
     
