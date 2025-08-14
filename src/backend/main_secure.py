@@ -53,28 +53,73 @@ class RateLimiter:
 
 rate_limiter = RateLimiter()
 
-# Cliente HTTP para obtener precios
+# Configuración de APIs alternativas
+BINANCE_ENDPOINTS = [
+    "https://api.binance.com/api/v3/ticker/price",
+    "https://api1.binance.com/api/v3/ticker/price",
+    "https://api2.binance.com/api/v3/ticker/price",
+    "https://api3.binance.com/api/v3/ticker/price"
+]
+
+# APIs alternativas si Binance falla completamente
+ALTERNATIVE_APIS = {
+    "cryptocompare": "https://min-api.cryptocompare.com/data/price",
+    "coinpaprika": "https://api.coinpaprika.com/v1/tickers",
+    "messari": "https://data.messari.io/api/v1/assets"
+}
+
+COINGECKO_ENDPOINTS = [
+    "https://api.coingecko.com/api/v3/simple/price",
+    "https://api.coingecko.com/api/v3/simple/price",
+    "https://api.coingecko.com/api/v3/simple/price"
+]
+
+# Rate limiting inteligente para CoinGecko
+class CoinGeckoRateLimiter:
+    def __init__(self):
+        self.last_request = 0
+        self.min_interval = 1.2  # 1.2 segundos entre requests (50 requests por minuto)
+    
+    async def wait_if_needed(self):
+        now = time.time()
+        time_since_last = now - self.last_request
+        if time_since_last < self.min_interval:
+            wait_time = self.min_interval - time_since_last
+            logger.info(f"⏳ Esperando {wait_time:.2f}s para respetar rate limit de CoinGecko")
+            await asyncio.sleep(wait_time)
+        self.last_request = time.time()
+
+coingecko_limiter = CoinGeckoRateLimiter()
+
+# Cliente HTTP para obtener precios con múltiples endpoints
 async def get_price_from_binance(symbol: str) -> float:
-    """Obtener precio desde Binance."""
-    try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            url = f"https://api.binance.com/api/v3/ticker/price"
-            params = {"symbol": f"{symbol.upper()}USDT"}
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
-            price = float(data.get("price", 0))
-            if price > 0:
-                logger.info(f"Precio obtenido de Binance para {symbol}: ${price:,.2f}")
-                return price
-            else:
-                raise Exception("Precio inválido recibido de Binance")
-    except Exception as e:
-        logger.error(f"Error obteniendo precio de Binance para {symbol}: {e}")
-        raise Exception(f"Binance no disponible para {symbol}: {str(e)}")
+    """Obtener precio desde Binance con múltiples endpoints."""
+    last_error = None
+    
+    for endpoint in BINANCE_ENDPOINTS:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                params = {"symbol": f"{symbol.upper()}USDT"}
+                response = await client.get(endpoint, params=params)
+                response.raise_for_status()
+                data = response.json()
+                price = float(data.get("price", 0))
+                if price > 0:
+                    logger.info(f"✅ Precio obtenido de Binance ({endpoint}) para {symbol}: ${price:,.2f}")
+                    return price
+                else:
+                    raise Exception("Precio inválido recibido de Binance")
+        except Exception as e:
+            last_error = e
+            logger.warning(f"⚠️ Endpoint Binance falló ({endpoint}): {e}")
+            continue
+    
+    # Si todos los endpoints fallan
+    logger.error(f"❌ Todos los endpoints de Binance fallaron para {symbol}")
+    raise Exception(f"Binance no disponible para {symbol} desde ningún endpoint: {str(last_error)}")
 
 async def get_price_from_coingecko(symbol: str) -> float:
-    """Obtener precio desde CoinGecko."""
+    """Obtener precio desde CoinGecko con rate limiting inteligente."""
     try:
         # Mapeo de símbolos a IDs de CoinGecko
         symbol_mapping = {
@@ -85,6 +130,9 @@ async def get_price_from_coingecko(symbol: str) -> float:
         }
         
         coin_id = symbol_mapping.get(symbol.upper(), symbol.lower())
+        
+        # Esperar si es necesario para respetar rate limit
+        await coingecko_limiter.wait_if_needed()
         
         async with httpx.AsyncClient(timeout=15.0) as client:
             url = "https://api.coingecko.com/api/v3/simple/price"
@@ -99,7 +147,7 @@ async def get_price_from_coingecko(symbol: str) -> float:
             if coin_id in data:
                 price = float(data[coin_id].get("usd", 0))
                 if price > 0:
-                    logger.info(f"Precio obtenido de CoinGecko para {symbol}: ${price:,.2f}")
+                    logger.info(f"✅ Precio obtenido de CoinGecko para {symbol}: ${price:,.2f}")
                     return price
                 else:
                     raise Exception("Precio inválido recibido de CoinGecko")
@@ -108,6 +156,51 @@ async def get_price_from_coingecko(symbol: str) -> float:
     except Exception as e:
         logger.error(f"Error obteniendo precio de CoinGecko para {symbol}: {e}")
         raise Exception(f"CoinGecko no disponible para {symbol}: {str(e)}")
+
+async def get_price_from_alternative_apis(symbol: str) -> float:
+    """Obtener precio desde APIs alternativas como último recurso."""
+    try:
+        # Intentar CryptoCompare
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            url = "https://min-api.cryptocompare.com/data/price"
+            params = {
+                "fsym": symbol.upper(),
+                "tsyms": "USD"
+            }
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            if "USD" in data:
+                price = float(data["USD"])
+                if price > 0:
+                    logger.info(f"✅ Precio obtenido de CryptoCompare para {symbol}: ${price:,.2f}")
+                    return price
+            
+            raise Exception("Precio inválido de CryptoCompare")
+            
+    except Exception as e:
+        logger.warning(f"⚠️ CryptoCompare falló para {symbol}: {e}")
+        
+        # Intentar CoinPaprika
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                url = f"https://api.coinpaprika.com/v1/tickers/{symbol.lower()}-{symbol.lower()}"
+                response = await client.get(url)
+                response.raise_for_status()
+                data = response.json()
+                
+                if "quotes" in data and "USD" in data["quotes"]:
+                    price = float(data["quotes"]["USD"]["price"])
+                    if price > 0:
+                        logger.info(f"✅ Precio obtenido de CoinPaprika para {symbol}: ${price:,.2f}")
+                        return price
+                
+                raise Exception("Precio inválido de CoinPaprika")
+                
+        except Exception as e2:
+            logger.warning(f"⚠️ CoinPaprika también falló para {symbol}: {e2}")
+            raise Exception(f"Todas las APIs alternativas fallaron: CryptoCompare: {e}, CoinPaprika: {e2}")
 
 async def get_current_price(symbol: str) -> float:
     """Obtener precio actual solo de fuentes reales."""
@@ -129,10 +222,23 @@ async def get_current_price(symbol: str) -> float:
         except Exception as coingecko_error:
             logger.error(f"❌ CoinGecko también falló para {symbol}: {coingecko_error}")
             
-            # Si ambas fuentes fallan, lanzar error
+            # Si ambas fuentes fallan, intentar APIs alternativas
             error_msg = f"No se pudo obtener precio real para {symbol}. Binance: {binance_error}, CoinGecko: {coingecko_error}"
             logger.error(error_msg)
-            raise Exception(error_msg)
+            
+            # Intentar con APIs alternativas como último recurso
+            logger.info(f"🔄 Intentando APIs alternativas para {symbol}...")
+            try:
+                price = await get_price_from_alternative_apis(symbol)
+                if price > 0:
+                    logger.info(f"✅ Precio obtenido de API alternativa para {symbol}: ${price:,.2f}")
+                    return price
+            except Exception as alt_error:
+                logger.warning(f"⚠️ APIs alternativas también fallaron: {alt_error}")
+            
+            # Si todo falla, lanzar error final
+            final_error = f"{error_msg}. APIs alternativas: {alt_error}"
+            raise Exception(final_error)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -243,6 +349,73 @@ async def health_price_apis():
             }
         }
 
+@app.get("/debug/price-apis")
+async def debug_price_apis():
+    """Endpoint de debug para diagnosticar problemas de APIs de precios."""
+    try:
+        results = {
+            "timestamp": time.time(),
+            "binance": {},
+            "coingecko": {},
+            "summary": {}
+        }
+        
+        # Probar cada endpoint de Binance individualmente
+        for i, endpoint in enumerate(BINANCE_ENDPOINTS):
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(endpoint, params={"symbol": "BTCUSDT"})
+                    results["binance"][f"endpoint_{i+1}"] = {
+                        "url": endpoint,
+                        "status_code": response.status_code,
+                        "response_time": response.elapsed.total_seconds(),
+                        "working": response.status_code == 200
+                    }
+            except Exception as e:
+                results["binance"][f"endpoint_{i+1}"] = {
+                    "url": endpoint,
+                    "error": str(e),
+                    "working": False
+                }
+        
+        # Probar CoinGecko con rate limiting
+        try:
+            await coingecko_limiter.wait_if_needed()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get("https://api.coingecko.com/api/v3/simple/price", 
+                                         params={"ids": "bitcoin", "vs_currencies": "usd"})
+                results["coingecko"] = {
+                    "status_code": response.status_code,
+                    "response_time": response.elapsed.total_seconds(),
+                    "working": response.status_code == 200,
+                    "rate_limit_respected": True
+                }
+        except Exception as e:
+            results["coingecko"] = {
+                "error": str(e),
+                "working": False,
+                "rate_limit_respected": False
+            }
+        
+        # Resumen
+        binance_working = any(endpoint["working"] for endpoint in results["binance"].values())
+        coingecko_working = results["coingecko"].get("working", False)
+        
+        results["summary"] = {
+            "binance_available": binance_working,
+            "coingecko_available": coingecko_working,
+            "overall_status": "healthy" if (binance_working or coingecko_working) else "error"
+        }
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error en debug de APIs de precios: {e}")
+        return {
+            "error": str(e),
+            "timestamp": time.time()
+        }
+
 # Endpoints principales
 @app.get("/")
 async def root():
@@ -254,6 +427,7 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "health": "/ping, /healthcheck, /health/simple, /health/detailed, /health/price-apis",
+            "debug": "/debug/price-apis",
             "prices": "/api/price/{symbol}",
             "status": "/api/status",
             "ai": "/advanced-strategy"
